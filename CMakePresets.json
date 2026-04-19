@@ -24,11 +24,7 @@
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_INSTALL_PREFIX": "${sourceDir}/install",
         "BUILD_SHARED_LIBS": "OFF",
-        "BUILD_TESTS": "OFF",
-        "Qt6_DIR": "C:/Qt/6.5.3/msvc2019_64/lib/cmake/Qt6"
-      },
-      "environment": {
-        "QT_DIR": "C:/Qt/6.5.3/msvc2019_64"
+        "BUILD_TESTS": "OFF"
       },
       "condition": {
         "type": "equals",
@@ -48,11 +44,7 @@
         "BUILD_SHARED_LIBS": "OFF",
         "BUILD_TESTS": "OFF",
         "CMAKE_C_COMPILER": "gcc",
-        "CMAKE_CXX_COMPILER": "g++",
-        "Qt6_DIR": "C:/Qt/6.5.3/mingw_64/lib/cmake/Qt6"
-      },
-      "environment": {
-        "QT_DIR": "C:/Qt/6.5.3/mingw_64"
+        "CMAKE_CXX_COMPILER": "g++"
       },
       "condition": {
         "type": "equals",

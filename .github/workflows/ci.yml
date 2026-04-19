@@ -58,97 +58,11 @@ jobs:
             cppcheck-results.xml
           retention-days: 7
 
-  build-windows-msvc:
-    name: Build Windows (MSVC)
-    runs-on: windows-latest
-    continue-on-error: true
-    needs: [ code-quality-checks ]
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Setup MSVC
-        uses: microsoft/setup-msbuild@v2
-
-      - name: Install build tools
-        run: |
-          # 安装Ninja构建工具
-          choco install ninja -y
-          # 安装CMake
-          choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System' -y
-
-      - name: Install Qt using aqtinstall
-        run: |
-          # 使用aqtinstall工具安装Qt，更可靠
-          pip install aqtinstall
-
-          # 安装Qt 6.5.3 for MSVC 2019 64-bit
-          aqt install-qt windows desktop 6.5.3 win64_msvc2019_64 -m qtbase qttools qtdeclarative
-
-          # 设置环境变量
-          $env:QT_DIR = "C:\Qt\6.5.3\msvc2019_64"
-          $env:Path = "$env:QT_DIR\bin;$env:Path"
-          [Environment]::SetEnvironmentVariable("Path", $env:Path, [EnvironmentVariableTarget]::Process)
-
-          Write-Host "Qt installed at: $env:QT_DIR"
-
-      - name: Configure CMake
-        run: |
-          # 根据输入参数决定是否启用NSIS
-          $enableNsis = "${{ github.event.inputs.enable_nsis }}"
-          if ($enableNsis -eq "true") {
-              Write-Host "NSIS enabled via manual trigger"
-              cmake --preset msvc -DENABLE_NSIS=ON
-          } else {
-              Write-Host "NSIS disabled (default for CI)"
-              cmake --preset msvc -DENABLE_NSIS=OFF
-          }
-
-      - name: Build
-        run: |
-          $ErrorActionPreference = "Stop"
-          Write-Host "Building project with CMake..."
-          cmake --build --preset msvc --config Release
-          Write-Host "Build completed successfully"
-
-      - name: Create package with CPack
-        run: |
-          cd build/msvc
-          $ErrorActionPreference = "Stop"
-
-          $enableNsis = "${{ github.event.inputs.enable_nsis }}"
-          if ($enableNsis -eq "true") {
-              choco install nsis -y
-              cpack -G ZIP -C Release
-              cpack -G NSIS -C Release
-          } else {
-              cpack -G ZIP -C Release
-          }
-
-          Write-Host "Generated packages:"
-          Get-ChildItem "*.zip", "*.exe" -ErrorAction SilentlyContinue | ForEach-Object {
-            Write-Host "  - $($_.Name)"
-          }
-
-      - name: Upload artifacts
-        if: success() || failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-msvc-packages
-          path: |
-            build/msvc/*.zip
-            build/msvc/*.exe
-          retention-days: 7
-
   build-windows-mingw:
     name: Build Windows (MinGW)
     runs-on: windows-latest
     continue-on-error: true
     needs: [ code-quality-checks ]
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -157,7 +71,7 @@ jobs:
 
       - name: Install MinGW
         run: |
-          choco install mingw --params="/InstallDir:C:\mingw64 /Architecture:x86_64" -y
+          choco install mingw --version 13.2.0 --params="/InstallDir:C:\mingw64 /Architecture:x86_64" -y
           $env:Path = "C:\mingw64\bin;" + $env:Path
           [Environment]::SetEnvironmentVariable("Path", $env:Path, [EnvironmentVariableTarget]::Process)
           gcc --version
@@ -167,34 +81,26 @@ jobs:
           choco install ninja -y
           choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System' -y
 
-      - name: Install Qt using aqtinstall for MinGW
-        run: |
-          pip install aqtinstall
-          # 安装Qt 6.5.3 for MinGW 64-bit
-          aqt install-qt windows desktop 6.5.3 win64_mingw -m qtbase qttools qtdeclarative
-
-          $env:QT_DIR = "C:\Qt\6.5.3\mingw_64"
-          $env:Path = "$env:QT_DIR\bin;$env:Path"
-          [Environment]::SetEnvironmentVariable("Path", $env:Path, [EnvironmentVariableTarget]::Process)
-
-          Write-Host "Qt installed at: $env:QT_DIR"
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.5.3'
+          host: 'windows'
+          target: 'desktop'
+          arch: 'win64_mingw'
 
       - name: Configure CMake for MinGW
         run: |
-          Write-Host "Configuring CMake with MinGW preset..."
-          cmake --preset mingw
+          cmake -B build/mingw -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Build with MinGW
         run: |
-          $ErrorActionPreference = "Stop"
-          Write-Host "Building project with MinGW..."
-          cmake --build --preset mingw --config Release
-          Write-Host "Build completed successfully"
+          cmake --build build/mingw --config Release
 
       - name: Create package with CPack
         run: |
           cd build/mingw
-          $ErrorActionPreference = "Stop"
           cpack -G ZIP -C Release
 
           Write-Host "Generated packages:"
@@ -236,16 +142,21 @@ jobs:
 
       - name: Configure CMake
         run: |
-          cmake --preset linux
+          cmake -B build/linux -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr
 
       - name: Build
         run: |
-          cmake --build --preset linux --config ${{ env.BUILD_TYPE }}
+          cmake --build build/linux
 
-      - name: Create package with CPack
+      - name: Create package
         run: |
           cd build/linux
-          cpack -G TGZ -C ${{ env.BUILD_TYPE }}
+          set +e
+          output=$(cmake -DCMAKE_INSTALL_PREFIX="$(pwd)/package" -P cmake_install.cmake 2>&1)
+          rc=$?
+          set -e
+          if [ $rc -ne 0 ]; then echo "$output" | tail -40; exit $rc; fi
+          tar czf QtAppLauncher-${{ env.BUILD_TYPE }}-Linux.tar.gz -C package .
 
       - name: Upload artifacts
         if: success() || failure()
@@ -273,18 +184,18 @@ jobs:
 
       - name: Configure CMake
         run: |
-          export Qt6_DIR=$(brew --prefix qt@6)/lib/cmake/Qt6
-          echo "Qt6_DIR set to: $Qt6_DIR"
-          cmake --preset macos
+          export Qt6_DIR="$(brew --prefix qt@6)/lib/cmake/Qt6"
+          echo "Qt6_DIR=$Qt6_DIR"
+          cmake -B build/macos -G Ninja -DCMAKE_BUILD_TYPE=Release -DQt6_DIR="$Qt6_DIR" -DCMAKE_INSTALL_PREFIX=/usr/local
 
       - name: Build
         run: |
-          cmake --build --preset macos --config ${{ env.BUILD_TYPE }}
+          cmake --build build/macos
 
       - name: Create package with CPack
         run: |
           cd build/macos
-          cpack -G ZIP -C ${{ env.BUILD_TYPE }}
+          cpack -G ZIP -C Release
 
       - name: Upload artifacts
         if: success() || failure()
@@ -301,7 +212,6 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       [
-        build-windows-msvc,
         build-windows-mingw,
         build-linux-gcc,
         build-macos-clang,
@@ -310,7 +220,6 @@ jobs:
     if: |
       github.event_name == 'push' && 
       github.ref == 'refs/heads/master' &&
-      needs.build-windows-msvc.result == 'success' &&
       needs.build-windows-mingw.result == 'success' &&
       needs.build-linux-gcc.result == 'success' &&
       needs.build-macos-clang.result == 'success'
@@ -346,7 +255,6 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       [
-        build-windows-msvc,
         build-windows-mingw,
         build-linux-gcc,
         build-macos-clang,
@@ -359,7 +267,6 @@ jobs:
         run: |
           echo "=== Build Status Summary ==="
           echo "Code Quality Checks: ${{ needs.code-quality-checks.result }}"
-          echo "Windows MSVC: ${{ needs.build-windows-msvc.result }}"
           echo "Windows MinGW: ${{ needs.build-windows-mingw.result }}"
           echo "Linux GCC: ${{ needs.build-linux-gcc.result }}"
           echo "macOS Clang: ${{ needs.build-macos-clang.result }}"
@@ -369,7 +276,6 @@ jobs:
           # 检查是否有失败的构建
           FAILED_JOBS=""
           if [[ "${{ needs.code-quality-checks.result }}" == "failure" ]]; then FAILED_JOBS="$FAILED_JOBS Code Quality Checks"; fi
-          if [[ "${{ needs.build-windows-msvc.result }}" == "failure" ]]; then FAILED_JOBS="$FAILED_JOBS Windows MSVC"; fi
           if [[ "${{ needs.build-windows-mingw.result }}" == "failure" ]]; then FAILED_JOBS="$FAILED_JOBS Windows MinGW"; fi
           if [[ "${{ needs.build-linux-gcc.result }}" == "failure" ]]; then FAILED_JOBS="$FAILED_JOBS Linux GCC"; fi
           if [[ "${{ needs.build-macos-clang.result }}" == "failure" ]]; then FAILED_JOBS="$FAILED_JOBS macOS Clang"; fi

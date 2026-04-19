@@ -59,10 +59,10 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
 # 安装路径配置
 set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/install" CACHE PATH "Installation prefix")
-set(CMAKE_INSTALL_BINDIR "bin" CACHE STRING "Binary installation directory")
-set(CMAKE_INSTALL_LIBDIR "lib" CACHE STRING "Library installation directory")
-set(CMAKE_INSTALL_INCLUDEDIR "include" CACHE STRING "Include files installation directory")
-set(CMAKE_INSTALL_DATADIR "share" CACHE STRING "Data files installation directory")
+set(CMAKE_INSTALL_BINDIR "bin" CACHE STRING "Binary installation directory" FORCE)
+set(CMAKE_INSTALL_LIBDIR "lib" CACHE STRING "Library installation directory" FORCE)
+set(CMAKE_INSTALL_INCLUDEDIR "include" CACHE STRING "Include files installation directory" FORCE)
+set(CMAKE_INSTALL_DATADIR "share" CACHE STRING "Data files installation directory" FORCE)
 
 # 项目选项
 option(BUILD_SHARED_LIBS "Build shared libraries" OFF)
@@ -242,6 +242,7 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
 # 安装可执行文件
 install(TARGETS ${PROJECT_NAME}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    BUNDLE DESTINATION ${CMAKE_INSTALL_BINDIR}
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
