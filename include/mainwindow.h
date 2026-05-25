@@ -3,6 +3,7 @@
 
 #include <QMainWindow>
 #include <QListWidgetItem>
+#include <QCloseEvent>
 #include "appitem.h"
 #include "appconfigdialog.h"
 #include "funcconfigdialog.h"
@@ -21,6 +22,9 @@ class MainWindow : public QMainWindow
 public:
     explicit MainWindow(AppItem *currentItem = nullptr, QWidget *parent = nullptr);
     ~MainWindow();
+
+protected:
+    void closeEvent(QCloseEvent *event) override;
 
 private slots:
     void onIconListItemClicked(QListWidgetItem *item);

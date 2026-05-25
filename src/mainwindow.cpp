@@ -84,6 +84,15 @@ MainWindow::~MainWindow()
     }
 }
 
+void MainWindow::closeEvent(QCloseEvent *event)
+{
+    MainWindow *parentMain = qobject_cast<MainWindow*>(parent());
+    if (parentMain) {
+        parentMain->show();
+    }
+    QMainWindow::closeEvent(event);
+}
+
 void MainWindow::setupContextMenu()
 {
     // 创建右键菜单
@@ -317,6 +326,7 @@ void MainWindow::onIconListItemClicked(QListWidgetItem *item)
         // 打开新的MainWindow显示该应用项
         MainWindow *newWindow = new MainWindow(appItem, this);
         newWindow->show();
+        this->hide();
     } 
     // 尝试转换为FuncItem
     else if (funcItem && currentItem->getFuncs().contains(funcItem)) {
