@@ -8,6 +8,7 @@
 #include "appconfigdialog.h"
 #include "funcconfigdialog.h"
 #include "config.h"
+#include "iconlistdelegate.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -33,7 +34,6 @@ private slots:
     void showContextMenu(const QPoint &pos);
     void onEditItem();
     void onDeleteItem();
-    //void onNewAction();
     void onOpenConfig();
     void onExit();
     void onAboutQuickStart();
@@ -46,18 +46,16 @@ private:
     void setupContextMenu();
 
     Ui::MainWindow *ui;
+    IconListDelegate *delegate;
     AppItem *currentItem;
     AppItem *rootItem;
     const QString CONFIG_FILE_PATH = "./config.json";
 
-    // 右键菜单相关
     QMenu *contextMenu;
     QAction *editAction;
     QAction *deleteAction;
     QListWidgetItem *contextMenuItem;
 
-    // 主菜单动作
-    //QAction *actionNew;
     QAction *actionOpen_config;
     QAction *actionExit;
     QAction *actionQuickStart;

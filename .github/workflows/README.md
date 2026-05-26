@@ -6,7 +6,7 @@
 
 ## 功能特性
 
-- **跨平台构建**: 支持Windows (MSVC/MinGW)、Linux和macOS
+- **跨平台构建**: 支持Windows (MSVC/MinGW)、Linux (x86_64 & ARM64) 和macOS
 - **Qt库支持**: 使用aqtinstall自动安装Qt 6.5.3
 - **代码质量检查**: 包含cppcheck、clang-tidy和valgrind
 - **自动发布**: 自动创建GitHub Release并包含所有平台构建产物
@@ -18,12 +18,17 @@
 - **MSVC**: 使用Visual Studio 2019构建，支持NSIS安装程序
 - **MinGW**: 使用MinGW GCC构建
 
-### Linux
+### Linux (x86_64)
 - Ubuntu 24.04+
 - 使用系统包管理器安装Qt6
 
+### Linux (ARM64)
+- Ubuntu 24.04 ARM64 (原生ARM runner)
+- 使用系统包管理器安装Qt6
+- 基于 `ubuntu-24.04-arm` GitHub Actions runner
+
 ### macOS
-- 最新版本
+- 最新版本 (Apple Silicon / Intel)
 - 使用Homebrew安装Qt6
 
 ## 触发条件
@@ -44,7 +49,8 @@
 ### 2. 跨平台构建
 - Windows MSVC构建
 - Windows MinGW构建  
-- Linux构建
+- Linux x86_64构建
+- Linux ARM64构建 (原生arm64 runner)
 - macOS构建
 
 ### 3. 创建发布 (仅master分支)

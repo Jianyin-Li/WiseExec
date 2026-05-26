@@ -3,5 +3,6 @@
     <qresource prefix="/">
         <file>resources/app_icon.ico</file>
         <file>resources/favicon.ico</file>
+        <file>resources/style.qss</file>
     </qresource>
 </RCC>

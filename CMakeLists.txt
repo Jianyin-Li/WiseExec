@@ -60,16 +60,13 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 # 安装路径配置
 set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/install" CACHE PATH "Installation prefix")
 set(CMAKE_INSTALL_BINDIR "bin" CACHE STRING "Binary installation directory" FORCE)
-set(CMAKE_INSTALL_LIBDIR "lib" CACHE STRING "Library installation directory" FORCE)
-set(CMAKE_INSTALL_INCLUDEDIR "include" CACHE STRING "Include files installation directory" FORCE)
-set(CMAKE_INSTALL_DATADIR "share" CACHE STRING "Data files installation directory" FORCE)
 
 # 项目选项
 option(BUILD_SHARED_LIBS "Build shared libraries" OFF)
 option(BUILD_TESTS "Build tests" OFF)
 option(BUILD_EXAMPLES "Build examples" OFF)
 option(ENABLE_DEBUG "Enable debug features" OFF)
-option(INSTALL_DEVELOPMENT "Install development files" ON)
+
 
 # 平台特定选项
 if(WIN32)
@@ -243,38 +240,9 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
 install(TARGETS ${PROJECT_NAME}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
     BUNDLE DESTINATION ${CMAKE_INSTALL_BINDIR}
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 
-# 安装头文件（如果启用了开发文件安装）
-if(INSTALL_DEVELOPMENT)
-    install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}
-        FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
-    )
-endif()
 
-# 安装资源文件
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/resources")
-    install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/resources/
-        DESTINATION ${CMAKE_INSTALL_DATADIR}/${PROJECT_NAME}/resources
-        PATTERN "*.qrc" EXCLUDE
-    )
-endif()
-
-# 安装文档
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/README.md")
-    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/README.md
-        DESTINATION ${CMAKE_INSTALL_DATADIR}/${PROJECT_NAME}
-    )
-endif()
-
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
-    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/LICENSE
-        DESTINATION ${CMAKE_INSTALL_DATADIR}/${PROJECT_NAME}
-    )
-endif()
 
 #=============================================================================
 # 测试配置（如果启用）

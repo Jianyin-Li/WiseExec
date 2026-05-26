@@ -6,36 +6,73 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>500</width>
-    <height>400</height>
+    <width>540</width>
+    <height>420</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>功能配置</string>
   </property>
+  <property name="minimumWidth">
+   <number>480</number>
+  </property>
   <layout class="QVBoxLayout" name="verticalLayout">
+   <property name="leftMargin">
+    <number>20</number>
+   </property>
+   <property name="topMargin">
+    <number>24</number>
+   </property>
+   <property name="rightMargin">
+    <number>20</number>
+   </property>
+   <property name="bottomMargin">
+    <number>20</number>
+   </property>
    <item>
     <layout class="QFormLayout" name="formLayout">
+     <property name="spacing">
+      <number>12</number>
+     </property>
+     <property name="topMargin">
+      <number>0</number>
+     </property>
      <item row="0" column="0">
       <widget class="QLabel" name="label">
        <property name="text">
-        <string>功能名：</string>
+        <string>功能名</string>
        </property>
       </widget>
      </item>
      <item row="0" column="1">
-      <widget class="QLineEdit" name="funcNameEdit"/>
+      <widget class="QLineEdit" name="funcNameEdit">
+       <property name="placeholderText">
+        <string>输入功能名称</string>
+       </property>
+      </widget>
      </item>
      <item row="1" column="0">
       <widget class="QLabel" name="label_2">
        <property name="text">
-        <string>图标路径：</string>
+        <string>图标路径</string>
        </property>
       </widget>
      </item>
      <item row="1" column="1">
       <widget class="QWidget" name="horizontalWidget" native="true">
        <layout class="QHBoxLayout" name="horizontalLayout">
+        <property name="leftMargin">
+         <number>0</number>
+        </property>
+        <property name="topMargin">
+         <number>0</number>
+        </property>
+        <property name="rightMargin">
+         <number>0</number>
+        </property>
+        <property name="bottomMargin">
+         <number>0</number>
+        </property>
         <item>
          <widget class="QLineEdit" name="iconPathEdit"/>
         </item>
@@ -57,27 +94,51 @@
       <string>命令列表</string>
      </property>
      <layout class="QVBoxLayout" name="verticalLayout_2">
+      <property name="leftMargin">
+       <number>8</number>
+      </property>
+      <property name="topMargin">
+       <number>16</number>
+      </property>
+      <property name="rightMargin">
+       <number>8</number>
+      </property>
+      <property name="bottomMargin">
+       <number>8</number>
+      </property>
       <item>
        <widget class="QListWidget" name="cmdListWidget"/>
       </item>
       <item>
        <widget class="QWidget" name="horizontalWidget_2" native="true">
         <layout class="QHBoxLayout" name="horizontalLayout_2">
+         <property name="leftMargin">
+          <number>0</number>
+         </property>
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="rightMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
          <item>
           <widget class="QPushButton" name="addCmdBtn">
            <property name="text">
             <string>输入命令</string>
            </property>
            <property name="toolTip">
-            <string>输入任意命令行指令（如：notepad.exe、calc.exe、cmd /k \"echo Hello\"）</string>
+            <string>输入任意命令行指令</string>
            </property>
           </widget>
          </item>
          <item>
           <widget class="QPushButton" name="selectExeBtn">
-        <property name="text">
+           <property name="text">
             <string>选择可执行文件</string>
-        </property>
+           </property>
            <property name="toolTip">
             <string>选择可执行文件（.exe、.bat、.sh等）</string>
            </property>
@@ -85,20 +146,32 @@
          </item>
          <item>
           <widget class="QPushButton" name="delCmdBtn">
-        <property name="text">
+           <property name="text">
             <string>删除命令</string>
-        </property>
+           </property>
+          </widget>
+         </item>
+        </layout>
        </widget>
       </item>
      </layout>
     </widget>
    </item>
-  </layout>
- </widget>
-   </item>
    <item>
     <widget class="QWidget" name="horizontalWidget_3" native="true">
      <layout class="QHBoxLayout" name="horizontalLayout_3">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>4</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
       <item>
        <spacer name="horizontalSpacer">
         <property name="orientation">

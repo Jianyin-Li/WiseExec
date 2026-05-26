@@ -18,13 +18,13 @@
 MainWindow::MainWindow(AppItem *currentItem, QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
+    , delegate(nullptr)
     , currentItem(currentItem)
     , rootItem(nullptr)
     , contextMenu(nullptr)
     , editAction(nullptr)
     , deleteAction(nullptr)
     , contextMenuItem(nullptr)
-    //, actionNew(nullptr)
     , actionOpen_config(nullptr)
     , actionExit(nullptr)
     , actionQuickStart(nullptr)
@@ -32,47 +32,47 @@ MainWindow::MainWindow(AppItem *currentItem, QWidget *parent)
     , actionApp(nullptr)
     , actionFunc(nullptr)
 {
-        ui->setupUi(this);
-    
-    // 设置窗口图标
+    ui->setupUi(this);
+
     setWindowIcon(QIcon(":/app_icon.ico"));
-    
-        // 获取菜单动作
-    //actionNew = ui->actionNew;
+    setMinimumSize(640, 480);
+
+    delegate = new IconListDelegate(this);
+    ui->iconListWidget->setItemDelegate(delegate);
+    ui->iconListWidget->setMouseTracking(true);
+    ui->iconListWidget->setGridSize(QSize(120, 130));
+    ui->iconListWidget->setIconSize(QSize(56, 56));
+    ui->iconListWidget->setWordWrap(true);
+    ui->iconListWidget->setResizeMode(QListView::Adjust);
+    ui->iconListWidget->setMovement(QListView::Static);
+    ui->iconListWidget->setViewMode(QListView::IconMode);
+    ui->iconListWidget->setSpacing(6);
+
     actionOpen_config = ui->actionOpen_config;
     actionExit = ui->actionExit;
     actionQuickStart = ui->actionQuickStart;
     actionQt = ui->actionQt;
     actionApp = ui->actionApp;
     actionFunc = ui->actionFunc;
-    
-    // 连接菜单动作
-    //connect(actionNew, &QAction::triggered, this, &MainWindow::onNewAction);
+
     connect(actionOpen_config, &QAction::triggered, this, &MainWindow::onOpenConfig);
     connect(actionExit, &QAction::triggered, this, &MainWindow::onExit);
     connect(actionQuickStart, &QAction::triggered, this, &MainWindow::onAboutQuickStart);
     connect(actionQt, &QAction::triggered, this, &MainWindow::onAboutQt);
     connect(actionApp, &QAction::triggered, this, &MainWindow::onAddAppClicked);
     connect(actionFunc, &QAction::triggered, this, &MainWindow::onAddFuncClicked);
-    
-    // 加载配置
+
     loadConfig();
-    
-    // 如果没有传入当前节点，使用根节点
+
     if (!this->currentItem) {
         this->currentItem = rootItem;
     }
-    
-    // 设置窗口标题
+
     setWindowTitle(QString("应用启动器 - %1").arg(this->currentItem->getName().isEmpty() ? "主界面" : this->currentItem->getName()));
-    
-    // 连接信号槽
+
     connect(ui->iconListWidget, &QListWidget::itemClicked, this, &MainWindow::onIconListItemClicked);
-    
-    // 设置右键菜单
+
     setupContextMenu();
-    
-    // 刷新图标列表
     refreshIconList();
 }
 
