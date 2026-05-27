@@ -11,7 +11,7 @@ if(NOT DEFINED PROJECT_NAME)
 endif()
 
 if(NOT DEFINED PROJECT_VERSION)
-    set(PROJECT_VERSION "1.0.0" CACHE STRING "Project version")
+    set(PROJECT_VERSION "2.0.0" CACHE STRING "Project version")
 endif()
 
 # 项目基本信息
@@ -136,9 +136,6 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         ${UI_FILES}
         ${RESOURCE_FILES}
     )
-    # Android 配置（如果需要）
-    # set_property(TARGET ${PROJECT_NAME} APPEND PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR
-    #              ${CMAKE_CURRENT_SOURCE_DIR}/android)
 else()
     add_executable(${PROJECT_NAME}
         ${SOURCES}
@@ -277,28 +274,6 @@ endif()
 # 生成配置文件
 #=============================================================================
 
-# 创建配置头文件（如果不存在模板，则创建简单版本）
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/config.h.in")
-    configure_file(
-        "${CMAKE_CURRENT_SOURCE_DIR}/config.h.in"
-        "${CMAKE_CURRENT_BINARY_DIR}/config.h"
-        @ONLY
-    )
-else()
-    # 创建简单的版本头文件
-    file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/config.h"
-        "// Auto-generated configuration header\n"
-        "#ifndef ${PROJECT_NAME}_CONFIG_H\n"
-        "#define ${PROJECT_NAME}_CONFIG_H\n\n"
-        "#define ${PROJECT_NAME}_VERSION_MAJOR ${PROJECT_VERSION_MAJOR}\n"
-        "#define ${PROJECT_NAME}_VERSION_MINOR ${PROJECT_VERSION_MINOR}\n"
-        "#define ${PROJECT_NAME}_VERSION_PATCH ${PROJECT_VERSION_PATCH}\n"
-        "#define ${PROJECT_NAME}_VERSION \"${PROJECT_VERSION}\"\n\n"
-        "#endif // ${PROJECT_NAME}_CONFIG_H\n"
-    )
-endif()
-
-# 将生成的配置头文件添加到包含路径
 target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 
 #=============================================================================

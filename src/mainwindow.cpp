@@ -363,19 +363,6 @@ void MainWindow::onAddFuncClicked()
     }
 }
 
-/*
-void MainWindow::onNewAction()
-{
-    // 导航回到主界面（根节点）
-    if (currentItem != rootItem) {
-        currentItem = rootItem;
-        refreshIconList();
-        setWindowTitle(QString("应用启动器 - 主界面"));
-    }
-}
-*/
-
-
 void MainWindow::onOpenConfig()
 {
     // 打开配置文件
@@ -400,8 +387,8 @@ void MainWindow::onExit()
 
 void MainWindow::onAboutQuickStart()
 {
-    // ����QuickStart
-        QMessageBox::about(this, tr("关于QuickStart"), 
+    // 关于QuickStart
+    QMessageBox::about(this, tr("关于QuickStart"), 
         AppConfig::aboutHtml());
 }
 

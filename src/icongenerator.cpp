@@ -34,9 +34,9 @@ QIcon IconGenerator::generateIcon(const QString &text, const QColor &backgroundC
     return QIcon(pixmap);
 }
 
-QList<QColor> IconGenerator::getDefaultColors()
+const QList<QColor>& IconGenerator::getDefaultColors()
 {
-    return {
+    static const QList<QColor> colors = {
         QColor(66, 133, 244),   // 蓝色
         QColor(219, 68, 55),    // 红色
         QColor(244, 180, 0),    // 黄色
@@ -48,6 +48,7 @@ QList<QColor> IconGenerator::getDefaultColors()
         QColor(158, 158, 158),  // 灰色
         QColor(96, 125, 139)    // 蓝灰色
     };
+    return colors;
 }
 
 QColor IconGenerator::getColorForName(const QString &name)

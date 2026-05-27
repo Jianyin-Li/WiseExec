@@ -22,7 +22,7 @@ public:
                              const QColor &textColor = Qt::white, int size = 64);
     
     // 获取颜色列表
-    static QList<QColor> getDefaultColors();
+    static const QList<QColor>& getDefaultColors();
     
     // 根据名称获取确定性颜色
     static QColor getColorForName(const QString &name);

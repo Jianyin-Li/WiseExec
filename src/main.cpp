@@ -8,8 +8,6 @@
 #include <QJsonObject>
 #include "appitem.h"
 
-const QString CONFIG_FILE_PATH = "./config.json";
-
 int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);

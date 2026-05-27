@@ -20,17 +20,6 @@ AppItem::AppItem(const QString &name, const QString &iconPath, QObject *parent)
 
 AppItem::~AppItem()
 {
-    // 基于Qt父子对象机制自动释放内存
-    for (AppItem *app : subApps) {
-        if (app) {
-            app->deleteLater();
-        }
-    }
-    for (FuncItem *func : funcs) {
-        if (func) {
-            func->deleteLater();
-        }
-    }
 }
 
 QIcon AppItem::getIcon() const
@@ -106,27 +95,17 @@ void AppItem::fromJson(const QJsonObject &obj)
 {
     name = obj["name"].toString();
     iconPath = obj["iconPath"].toString();
-    
-    // 清空现有数据
-    for (AppItem *app : subApps) {
-        app->deleteLater();
-    }
+
     subApps.clear();
-    
-    for (FuncItem *func : funcs) {
-        func->deleteLater();
-    }
     funcs.clear();
-    
-    // 反序列化子应用
+
     QJsonArray subAppsArray = obj["subApps"].toArray();
     for (const QJsonValue &value : subAppsArray) {
         AppItem *app = new AppItem(this);
         app->fromJson(value.toObject());
         subApps.append(app);
     }
-    
-    // 反序列化功能项
+
     QJsonArray funcsArray = obj["funcs"].toArray();
     for (const QJsonValue &value : funcsArray) {
         FuncItem *func = new FuncItem(this);

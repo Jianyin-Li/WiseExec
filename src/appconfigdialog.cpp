@@ -2,6 +2,7 @@
 #include "../ui/ui_appconfigdialog.h"
 #include <QFileDialog>
 #include <QMessageBox>
+#include <QPushButton>
 #include <QFile>
 #include <QDir>
 

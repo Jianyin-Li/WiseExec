@@ -7,7 +7,7 @@ namespace AppConfig {
     // 应用程序信息
     const QString APP_NAME = "QuickStart";
     const QString APP_DISPLAY_NAME = "应用启动器";
-    const QString APP_VERSION = "1.0.0";
+    const QString APP_VERSION = "2.0.0";
     const QString APP_BUILD_DATE = __DATE__;
     const QString APP_BUILD_TIME = __TIME__;
     
