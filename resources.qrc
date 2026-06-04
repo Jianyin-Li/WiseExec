@@ -5,4 +5,8 @@
         <file>resources/favicon.ico</file>
         <file>resources/style.qss</file>
     </qresource>
+    <qresource prefix="/i18n">
+        <file alias="QuickStart_zh_CN.qm">resources/QuickStart_zh_CN.qm</file>
+        <file alias="QuickStart_en.qm">resources/QuickStart_en.qm</file>
+    </qresource>
 </RCC>

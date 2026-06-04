@@ -24,15 +24,13 @@ AppItem::~AppItem()
 
 QIcon AppItem::getIcon() const
 {
-    // 如果图标路径不为空且文件存在，使用指定图标
     if (!iconPath.isEmpty()) {
         QFileInfo fileInfo(iconPath);
         if (fileInfo.exists()) {
             return QIcon(iconPath);
         }
     }
-    
-    // 否则使用默认图标生成器
+
     return IconGenerator::generateDefaultIcon(name);
 }
 
@@ -74,14 +72,12 @@ QJsonObject AppItem::toJson() const
     obj["name"] = name;
     obj["iconPath"] = iconPath;
     
-    // 序列化子应用
     QJsonArray subAppsArray;
     for (const AppItem *app : subApps) {
         subAppsArray.append(app->toJson());
     }
     obj["subApps"] = subAppsArray;
     
-    // 序列化功能项
     QJsonArray funcsArray;
     for (const FuncItem *func : funcs) {
         funcsArray.append(func->toJson());

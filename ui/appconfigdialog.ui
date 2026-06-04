@@ -10,9 +10,9 @@
     <height>200</height>
    </rect>
   </property>
-  <property name="windowTitle">
-   <string>应用配置</string>
-  </property>
+   <property name="windowTitle">
+    <string>App Config</string>
+   </property>
   <property name="minimumWidth">
    <number>400</number>
   </property>
@@ -38,23 +38,23 @@
       <number>0</number>
      </property>
      <item row="0" column="0">
-      <widget class="QLabel" name="label">
-       <property name="text">
-        <string>应用名</string>
-       </property>
-      </widget>
-     </item>
-     <item row="0" column="1">
-      <widget class="QLineEdit" name="appNameEdit">
-       <property name="placeholderText">
-        <string>输入应用名称</string>
+       <widget class="QLabel" name="label">
+        <property name="text">
+         <string>App Name</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QLineEdit" name="appNameEdit">
+        <property name="placeholderText">
+         <string>Enter app name</string>
        </property>
       </widget>
      </item>
      <item row="1" column="0">
-      <widget class="QLabel" name="label_2">
-       <property name="text">
-        <string>图标路径</string>
+       <widget class="QLabel" name="label_2">
+        <property name="text">
+         <string>Icon Path</string>
        </property>
       </widget>
      </item>
@@ -79,7 +79,7 @@
         <item>
          <widget class="QPushButton" name="selectIconBtn">
           <property name="text">
-           <string>选择图标</string>
+           <string>Select Icon</string>
           </property>
          </widget>
         </item>
@@ -117,16 +117,16 @@
        </spacer>
       </item>
       <item>
-       <widget class="QPushButton" name="confirmBtn">
-        <property name="text">
-         <string>确定</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QPushButton" name="cancelBtn">
-        <property name="text">
-         <string>取消</string>
+        <widget class="QPushButton" name="confirmBtn">
+         <property name="text">
+          <string>OK</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="cancelBtn">
+         <property name="text">
+          <string>Cancel</string>
         </property>
        </widget>
       </item>

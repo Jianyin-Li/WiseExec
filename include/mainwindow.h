@@ -4,6 +4,10 @@
 #include <QMainWindow>
 #include <QListWidgetItem>
 #include <QCloseEvent>
+#include <QEvent>
+#include <QTranslator>
+#include <QComboBox>
+#include <QLabel>
 #include "appitem.h"
 #include "appconfigdialog.h"
 #include "funcconfigdialog.h"
@@ -26,6 +30,7 @@ public:
 
 protected:
     void closeEvent(QCloseEvent *event) override;
+    void changeEvent(QEvent *event) override;
 
 private slots:
     void onIconListItemClicked(QListWidgetItem *item);
@@ -38,18 +43,22 @@ private slots:
     void onExit();
     void onAboutQuickStart();
     void onAboutQt();
+    void onLanguageChanged(int index);
 
 private:
     void refreshIconList();
     void saveConfig();
     void loadConfig();
     void setupContextMenu();
+    void setupLanguageToggle();
+    void retranslateLanguageToggle();
 
     Ui::MainWindow *ui;
     IconListDelegate *delegate;
     AppItem *currentItem;
     AppItem *rootItem;
     const QString CONFIG_FILE_PATH = "./config.json";
+    QTranslator *currentTranslator = nullptr;
 
     QMenu *contextMenu;
     QAction *editAction;
@@ -62,6 +71,9 @@ private:
     QAction *actionQt;
     QAction *actionApp;
     QAction *actionFunc;
+
+    QLabel *languageLabel = nullptr;
+    QComboBox *languageCombo = nullptr;
 };
 #endif // MAINWINDOW_H
 

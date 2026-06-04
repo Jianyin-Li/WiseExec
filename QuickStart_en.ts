@@ -1,68 +1,68 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE TS>
-<TS version="2.1" language="zh_CN">
+<TS version="2.1" language="en">
 <context>
     <name>AppConfigDialog</name>
     <message>
         <location filename="ui/appconfigdialog.ui" line="14"/>
         <source>App Config</source>
-        <translation>应用配置</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="ui/appconfigdialog.ui" line="43"/>
         <source>App Name</source>
-        <translation>应用名</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="ui/appconfigdialog.ui" line="50"/>
         <source>Enter app name</source>
-        <translation>输入应用名称</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="ui/appconfigdialog.ui" line="57"/>
         <source>Icon Path</source>
-        <translation>图标路径</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="ui/appconfigdialog.ui" line="82"/>
         <source>Select Icon</source>
-        <translation>选择图标</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="ui/appconfigdialog.ui" line="122"/>
         <source>OK</source>
-        <translation>确定</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="ui/appconfigdialog.ui" line="129"/>
         <source>Cancel</source>
-        <translation>取消</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="src/appconfigdialog.cpp" line="59"/>
         <source>Select App Icon</source>
-        <translation>选择应用图标</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="src/appconfigdialog.cpp" line="61"/>
         <source>Image Files (*.png *.jpg *.ico *.bmp *.svg)</source>
-        <translation>图片文件 (*.png *.jpg *.ico *.bmp *.svg)</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="src/appconfigdialog.cpp" line="74"/>
         <location filename="src/appconfigdialog.cpp" line="79"/>
         <source>Notice</source>
-        <translation>提示</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="src/appconfigdialog.cpp" line="74"/>
         <source>App name cannot be empty</source>
-        <translation>应用名不能为空</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="src/appconfigdialog.cpp" line="79"/>
         <source>Icon file does not exist</source>
-        <translation>图标文件不存在</translation>
+        <translation ></translation>
     </message>
 </context>
 <context>
@@ -70,84 +70,84 @@
     <message>
         <location filename="ui/funcconfigdialog.ui" line="14"/>
         <source>Function Config</source>
-        <translation>功能配置</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="ui/funcconfigdialog.ui" line="43"/>
         <source>Function Name</source>
-        <translation>功能名</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="ui/funcconfigdialog.ui" line="50"/>
         <source>Enter function name</source>
-        <translation>输入功能名称</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="ui/funcconfigdialog.ui" line="57"/>
         <source>Icon Path</source>
-        <translation>图标路径</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="ui/funcconfigdialog.ui" line="82"/>
         <source>Select Icon</source>
-        <translation>选择图标</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="ui/funcconfigdialog.ui" line="94"/>
         <source>Command List</source>
-        <translation>命令列表</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="ui/funcconfigdialog.ui" line="130"/>
         <location filename="src/funcconfigdialog.cpp" line="85"/>
         <source>Enter Command</source>
-        <translation>输入命令</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="ui/funcconfigdialog.ui" line="133"/>
         <source>Enter any command-line instruction</source>
-        <translation>输入任意命令行指令</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="ui/funcconfigdialog.ui" line="140"/>
         <location filename="src/funcconfigdialog.cpp" line="118"/>
         <source>Select Executable</source>
-        <translation>选择可执行文件</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="ui/funcconfigdialog.ui" line="143"/>
         <source>Select executable (.exe, .bat, .sh, etc.)</source>
-        <translation>选择可执行文件（.exe、.bat、.sh等）</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="ui/funcconfigdialog.ui" line="150"/>
         <source>Delete Command</source>
-        <translation>删除命令</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="ui/funcconfigdialog.ui" line="191"/>
         <source>OK</source>
-        <translation>确定</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="ui/funcconfigdialog.ui" line="198"/>
         <source>Cancel</source>
-        <translation>取消</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="src/funcconfigdialog.cpp" line="72"/>
         <source>Select Function Icon</source>
-        <translation>选择功能图标</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="src/funcconfigdialog.cpp" line="74"/>
         <source>Image Files (*.png *.jpg *.ico *.bmp *.svg)</source>
-        <translation>图片文件 (*.png *.jpg *.ico *.bmp *.svg)</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="src/funcconfigdialog.cpp" line="86"/>
         <source>Enter the command to execute (e.g. notepad.exe, calc.exe):</source>
-        <translation>请输入要执行的命令（例如：notepad.exe、calc.exe）:</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="src/funcconfigdialog.cpp" line="103"/>
@@ -156,42 +156,42 @@
         <location filename="src/funcconfigdialog.cpp" line="158"/>
         <location filename="src/funcconfigdialog.cpp" line="163"/>
         <source>Notice</source>
-        <translation>提示</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="src/funcconfigdialog.cpp" line="103"/>
         <source>This command already exists</source>
-        <translation>该命令已存在</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="src/funcconfigdialog.cpp" line="112"/>
         <source>Executables (*.exe *.bat *.cmd);;All Files (*.*)</source>
-        <translation>可执行文件 (*.exe *.bat *.cmd);;所有文件 (*.*)</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="src/funcconfigdialog.cpp" line="114"/>
         <source>Executables (*.sh *.bin);;All Files (*)</source>
-        <translation>可执行文件 (*.sh *.bin);;所有文件 (*)</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="src/funcconfigdialog.cpp" line="134"/>
         <source>This file already exists</source>
-        <translation>该文件已存在</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="src/funcconfigdialog.cpp" line="153"/>
         <source>Function name cannot be empty</source>
-        <translation>功能名不能为空</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="src/funcconfigdialog.cpp" line="158"/>
         <source>Icon file does not exist</source>
-        <translation>图标文件不存在</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="src/funcconfigdialog.cpp" line="163"/>
         <source>Command list cannot be empty</source>
-        <translation>命令列表不能为空</translation>
+        <translation ></translation>
     </message>
 </context>
 <context>
@@ -199,27 +199,27 @@
     <message>
         <location filename="ui/mainwindow.ui" line="14"/>
         <source>App Launcher</source>
-        <translation>应用启动器</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="ui/mainwindow.ui" line="68"/>
         <source>Start</source>
-        <translation>开始</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="ui/mainwindow.ui" line="72"/>
         <source>New</source>
-        <translation>新建</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="ui/mainwindow.ui" line="84"/>
         <source>About</source>
-        <translation>版权</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="ui/mainwindow.ui" line="99"/>
         <source>Open config</source>
-        <translation>打开配置</translation>
+        <translation>Open Config</translation>
     </message>
     <message>
         <location filename="ui/mainwindow.ui" line="102"/>
@@ -229,12 +229,12 @@
     <message>
         <location filename="ui/mainwindow.ui" line="110"/>
         <source>Exit</source>
-        <translation>退出</translation>
+        <translation>Exit</translation>
     </message>
     <message>
         <location filename="ui/mainwindow.ui" line="118"/>
         <source>QuickStart</source>
-        <translation>快捷启动</translation>
+        <translation>QuickStart</translation>
     </message>
     <message>
         <location filename="ui/mainwindow.ui" line="126"/>
@@ -244,125 +244,125 @@
     <message>
         <location filename="ui/mainwindow.ui" line="134"/>
         <source>App Collection</source>
-        <translation>应用程序集合</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="ui/mainwindow.ui" line="139"/>
         <source>Functions</source>
-        <translation>功能</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="src/mainwindow.cpp" line="73"/>
         <location filename="src/mainwindow.cpp" line="105"/>
         <source>Home</source>
-        <translation>主界面</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="src/mainwindow.cpp" line="74"/>
         <location filename="src/mainwindow.cpp" line="106"/>
         <source>App Launcher - %1</source>
-        <translation>应用启动器 - %1</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="src/mainwindow.cpp" line="75"/>
         <location filename="src/mainwindow.cpp" line="107"/>
         <source>Current: %1</source>
-        <translation>当前: %1</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="src/mainwindow.cpp" line="130"/>
         <source>Language:</source>
-        <translation>语言:</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="src/mainwindow.cpp" line="131"/>
         <source>English</source>
-        <translation>英语</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="src/mainwindow.cpp" line="132"/>
         <source>Chinese</source>
-        <translation>中文</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="src/mainwindow.cpp" line="156"/>
         <source>Edit</source>
-        <translation>编辑</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="src/mainwindow.cpp" line="157"/>
         <source>Delete</source>
-        <translation>删除</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="src/mainwindow.cpp" line="235"/>
         <source>Confirm Delete</source>
-        <translation>确认删除</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="src/mainwindow.cpp" line="236"/>
         <source>Are you sure you want to delete &quot;%1&quot;?</source>
-        <translation type="unfinished"></translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="src/mainwindow.cpp" line="287"/>
         <source>Notice</source>
-        <translation>提示</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="src/mainwindow.cpp" line="287"/>
         <source>Failed to save config file, please check file permissions</source>
-        <translation>保存配置文件失败，请检查文件权限</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="src/mainwindow.cpp" line="314"/>
         <source>+ Add</source>
-        <translation>+ 添加</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="src/mainwindow.cpp" line="328"/>
         <source>Select Type</source>
-        <translation>选择添加类型</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="src/mainwindow.cpp" line="329"/>
         <source>Please select the type to add:</source>
-        <translation>请选择要添加的类型：</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="src/mainwindow.cpp" line="331"/>
         <source>Add App</source>
-        <translation>添加应用</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="src/mainwindow.cpp" line="332"/>
         <source>Add Function</source>
-        <translation>添加功能</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="src/mainwindow.cpp" line="333"/>
         <source>Cancel</source>
-        <translation>取消</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="src/mainwindow.cpp" line="397"/>
         <source>Open Config</source>
-        <translation>打开配置</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="src/mainwindow.cpp" line="398"/>
         <source>Config file not found: %1</source>
-        <translation>配置文件不存在：%1</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="src/mainwindow.cpp" line="409"/>
         <source>About QuickStart</source>
-        <translation>关于快捷启动</translation>
+        <translation ></translation>
     </message>
     <message>
         <location filename="src/mainwindow.cpp" line="415"/>
         <source>About Qt</source>
-        <translation>关于Qt</translation>
+        <translation ></translation>
     </message>
 </context>
 </TS>

@@ -21,8 +21,8 @@ public:
 
 private slots:
     void onSelectIconClicked();
-    void onAddCmdClicked();          // 输入命令
-    void onSelectExeClicked();       // 选择可执行文件
+    void onAddCmdClicked();
+    void onSelectExeClicked();
     void onDelCmdClicked();
     void onConfirmClicked();
     void onCancelClicked();

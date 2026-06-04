@@ -128,22 +128,12 @@ message(STATUS "Found ${RESOURCE_FILES_COUNT} resource files")
 #=============================================================================
 
 # 创建可执行文件目标
-if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
-    qt_add_executable(${PROJECT_NAME}
-        MANUAL_FINALIZATION
-        ${SOURCES}
-        ${HEADERS}
-        ${UI_FILES}
-        ${RESOURCE_FILES}
-    )
-else()
-    add_executable(${PROJECT_NAME}
-        ${SOURCES}
-        ${HEADERS}
-        ${UI_FILES}
-        ${RESOURCE_FILES}
-    )
-endif()
+add_executable(${PROJECT_NAME}
+    ${SOURCES}
+    ${HEADERS}
+    ${UI_FILES}
+    ${RESOURCE_FILES}
+)
 
 #=============================================================================
 # 目标属性配置
@@ -260,14 +250,6 @@ if(BUILD_TESTS)
         target_link_libraries(${PROJECT_NAME}_tests PRIVATE ${PROJECT_NAME})
         add_test(NAME ${PROJECT_NAME}_tests COMMAND ${PROJECT_NAME}_tests)
     endif()
-endif()
-
-#=============================================================================
-# Qt 6 最终化
-#=============================================================================
-
-if(QT_VERSION_MAJOR EQUAL 6)
-    qt_finalize_executable(${PROJECT_NAME})
 endif()
 
 #=============================================================================

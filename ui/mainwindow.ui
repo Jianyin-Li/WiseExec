@@ -10,9 +10,9 @@
     <height>600</height>
    </rect>
   </property>
-  <property name="windowTitle">
-   <string>应用启动器</string>
-  </property>
+   <property name="windowTitle">
+    <string>App Launcher</string>
+   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="verticalLayout">
     <property name="leftMargin">
@@ -65,11 +65,11 @@
    </property>
    <widget class="QMenu" name="menu">
     <property name="title">
-     <string>开始</string>
+     <string>Start</string>
     </property>
     <widget class="QMenu" name="menu_3">
      <property name="title">
-      <string>新建</string>
+      <string>New</string>
      </property>
      <addaction name="actionApp"/>
      <addaction name="actionFunc"/>
@@ -81,7 +81,7 @@
    </widget>
    <widget class="QMenu" name="menu_2">
     <property name="title">
-     <string>版权</string>
+     <string>About</string>
     </property>
     <addaction name="actionQuickStart"/>
     <addaction name="actionQt"/>
@@ -89,7 +89,11 @@
    <addaction name="menu"/>
    <addaction name="menu_2"/>
   </widget>
-  <widget class="QStatusBar" name="statusbar"/>
+  <widget class="QStatusBar" name="statusbar">
+   <property name="sizeGripEnabled">
+    <bool>false</bool>
+   </property>
+  </widget>
   <action name="actionOpen_config">
    <property name="text">
     <string>Open config</string>
@@ -125,16 +129,16 @@
     <enum>QAction::MenuRole::AboutQtRole</enum>
    </property>
   </action>
-  <action name="actionApp">
-   <property name="text">
-    <string>应用程序集合</string>
-   </property>
-  </action>
-  <action name="actionFunc">
-   <property name="text">
-    <string>功能</string>
-   </property>
-  </action>
+   <action name="actionApp">
+    <property name="text">
+     <string>App Collection</string>
+    </property>
+   </action>
+   <action name="actionFunc">
+    <property name="text">
+     <string>Functions</string>
+    </property>
+   </action>
  </widget>
  <resources/>
  <connections/>

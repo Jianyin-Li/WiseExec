@@ -11,7 +11,7 @@
 #include <QPushButton>
 #include <QMenu>
 #include <QAction>
-#include <QIcon>  // 添加QIcon头文件
+#include <QIcon>
 #include <QDesktopServices>
 #include <QUrl>
 
@@ -68,7 +68,11 @@ MainWindow::MainWindow(AppItem *currentItem, QWidget *parent)
         this->currentItem = rootItem;
     }
 
-    setWindowTitle(QString("应用启动器 - %1").arg(this->currentItem->getName().isEmpty() ? "主界面" : this->currentItem->getName()));
+    setupLanguageToggle();
+
+    QString name = this->currentItem->getName().isEmpty() ? tr("Home") : this->currentItem->getName();
+    setWindowTitle(tr("App Launcher - %1").arg(name));
+    ui->statusbar->showMessage(tr("Current: %1").arg(name));
 
     connect(ui->iconListWidget, &QListWidget::itemClicked, this, &MainWindow::onIconListItemClicked);
 
@@ -93,24 +97,71 @@ void MainWindow::closeEvent(QCloseEvent *event)
     QMainWindow::closeEvent(event);
 }
 
+void MainWindow::changeEvent(QEvent *event)
+{
+    if (event->type() == QEvent::LanguageChange) {
+        ui->retranslateUi(this);
+        retranslateLanguageToggle();
+        QString name = currentItem->getName().isEmpty() ? tr("Home") : currentItem->getName();
+        setWindowTitle(tr("App Launcher - %1").arg(name));
+        ui->statusbar->showMessage(tr("Current: %1").arg(name));
+    }
+    QMainWindow::changeEvent(event);
+}
+
+void MainWindow::setupLanguageToggle()
+{
+    languageLabel = new QLabel(this);
+    languageCombo = new QComboBox(this);
+    languageCombo->addItem("English", QString("en"));
+    languageCombo->addItem("中文", QString("zh_CN"));
+    languageCombo->setCurrentIndex(0);
+
+    connect(languageCombo, &QComboBox::currentIndexChanged, this, &MainWindow::onLanguageChanged);
+
+    ui->statusbar->addPermanentWidget(languageLabel);
+    ui->statusbar->addPermanentWidget(languageCombo);
+
+    retranslateLanguageToggle();
+}
+
+void MainWindow::retranslateLanguageToggle()
+{
+    languageLabel->setText(tr("Language:"));
+    languageCombo->setItemText(0, tr("English"));
+    languageCombo->setItemText(1, tr("Chinese"));
+}
+
+void MainWindow::onLanguageChanged(int index)
+{
+    QString locale = languageCombo->itemData(index).toString();
+
+    QTranslator *translator = new QTranslator(this);
+    if (translator->load(":/i18n/QuickStart_" + locale)) {
+        qApp->removeTranslator(currentTranslator);
+        if (currentTranslator) {
+            delete currentTranslator;
+        }
+        currentTranslator = translator;
+        qApp->installTranslator(translator);
+    } else {
+        delete translator;
+    }
+}
+
 void MainWindow::setupContextMenu()
 {
-    // 创建右键菜单
     contextMenu = new QMenu(this);
-    
-    // 创建菜单项
-    editAction = new QAction(tr("编辑"), this);
-    deleteAction = new QAction(tr("删除"), this);
-    
-    // 连接菜单项信号
+
+    editAction = new QAction(tr("Edit"), this);
+    deleteAction = new QAction(tr("Delete"), this);
+
     connect(editAction, &QAction::triggered, this, &MainWindow::onEditItem);
     connect(deleteAction, &QAction::triggered, this, &MainWindow::onDeleteItem);
-    
-    // 添加到菜单
+
     contextMenu->addAction(editAction);
     contextMenu->addAction(deleteAction);
-    
-    // 设置列表控件的上下文菜单策略
+
     ui->iconListWidget->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(ui->iconListWidget, &QWidget::customContextMenuRequested,
             this, &MainWindow::showContextMenu);
@@ -118,18 +169,13 @@ void MainWindow::setupContextMenu()
 
 void MainWindow::showContextMenu(const QPoint &pos)
 {
-    // 获取点击位置的项
     contextMenuItem = ui->iconListWidget->itemAt(pos);
-    
+
     if (contextMenuItem) {
-        // 检查是否是"+添加"项
         void *data = contextMenuItem->data(Qt::UserRole).value<void*>();
         if (!data) {
-            // "+添加"项不显示右键菜单
             return;
         }
-        
-        // 显示右键菜单
         contextMenu->exec(ui->iconListWidget->mapToGlobal(pos));
     }
 }
@@ -137,45 +183,36 @@ void MainWindow::showContextMenu(const QPoint &pos)
 void MainWindow::onEditItem()
 {
     if (!contextMenuItem || !currentItem) return;
-    
+
     void *data = contextMenuItem->data(Qt::UserRole).value<void*>();
     if (!data) return;
-    
-    // 检查是AppItem还是FuncItem
+
     AppItem *appItem = reinterpret_cast<AppItem*>(data);
     FuncItem *funcItem = reinterpret_cast<FuncItem*>(data);
-    
-    // 尝试编辑AppItem
+
     if (appItem && currentItem->getSubApps().contains(appItem)) {
-        AppConfigDialog dialog(appItem, this);  // 使用带编辑功能的构造函数
+        AppConfigDialog dialog(appItem, this);
         if (dialog.exec() == QDialog::Accepted) {
             AppItem *newApp = dialog.getNewApp();
             if (newApp) {
-                // 替换原有的项
                 int index = currentItem->getSubApps().indexOf(appItem);
                 if (index != -1) {
-                    // 删除旧的
                     currentItem->removeSubApp(appItem);
-                    // 添加新的
                     currentItem->addSubApp(newApp);
                     refreshIconList();
                     saveConfig();
                 }
             }
         }
-    } 
-    // 尝试编辑FuncItem
+    }
     else if (funcItem && currentItem->getFuncs().contains(funcItem)) {
-        FuncConfigDialog dialog(funcItem, this);  // 使用带编辑功能的构造函数
+        FuncConfigDialog dialog(funcItem, this);
         if (dialog.exec() == QDialog::Accepted) {
             FuncItem *newFunc = dialog.getNewFunc();
             if (newFunc) {
-                // 替换原有的项
                 int index = currentItem->getFuncs().indexOf(funcItem);
                 if (index != -1) {
-                    // 删除旧的
                     currentItem->removeFunc(funcItem);
-                    // 添加新的
                     currentItem->addFunc(newFunc);
                     refreshIconList();
                     saveConfig();
@@ -188,30 +225,26 @@ void MainWindow::onEditItem()
 void MainWindow::onDeleteItem()
 {
     if (!contextMenuItem || !currentItem) return;
-    
+
     void *data = contextMenuItem->data(Qt::UserRole).value<void*>();
     if (!data) return;
-    
+
     QString itemName = contextMenuItem->text();
-    
-    // 确认对话框
+
     QMessageBox::StandardButton reply;
-    reply = QMessageBox::question(this, tr("确认删除"),
-                                 tr("确定要删除 \"%1\" 吗？").arg(itemName),
+    reply = QMessageBox::question(this, tr("Confirm Delete"),
+                                 tr("Are you sure you want to delete \"%1\"?").arg(itemName),
                                  QMessageBox::Yes | QMessageBox::No);
-    
+
     if (reply == QMessageBox::Yes) {
-        // 检查是AppItem还是FuncItem
         AppItem *appItem = reinterpret_cast<AppItem*>(data);
         FuncItem *funcItem = reinterpret_cast<FuncItem*>(data);
-        
-        // 删除AppItem
+
         if (appItem && currentItem->getSubApps().contains(appItem)) {
             currentItem->removeSubApp(appItem);
             refreshIconList();
             saveConfig();
         }
-        // 删除FuncItem
         else if (funcItem && currentItem->getFuncs().contains(funcItem)) {
             currentItem->removeFunc(funcItem);
             refreshIconList();
@@ -226,64 +259,59 @@ void MainWindow::loadConfig()
     if (configFile.exists() && configFile.open(QIODevice::ReadOnly)) {
         QByteArray data = configFile.readAll();
         configFile.close();
-        
+
         QJsonDocument doc = QJsonDocument::fromJson(data);
         if (!doc.isNull() && doc.isObject()) {
             rootItem = new AppItem();
             rootItem->fromJson(doc.object());
         } else {
-            // 配置文件格式错误，创建空根节点
-            rootItem = new AppItem("主界面", "");
+            rootItem = new AppItem("Home", "");
         }
     } else {
-        // 配置文件不存在，创建空根节点
-        rootItem = new AppItem("主界面", "");
+        rootItem = new AppItem("Home", "");
     }
 }
 
 void MainWindow::saveConfig()
 {
     if (!rootItem) return;
-    
+
     QJsonObject rootObj = rootItem->toJson();
     QJsonDocument doc(rootObj);
-    
+
     QFile configFile(CONFIG_FILE_PATH);
     if (configFile.open(QIODevice::WriteOnly)) {
         configFile.write(doc.toJson());
         configFile.close();
     } else {
-        QMessageBox::warning(this, tr("提示"), tr("保存配置文件失败，请检查文件权限"));
+        QMessageBox::warning(this, tr("Notice"), tr("Failed to save config file, please check file permissions"));
     }
 }
 
 void MainWindow::refreshIconList()
 {
     if (!currentItem) return;
-    
+
     ui->iconListWidget->clear();
-    
-    // 添加子应用项
+
     for (AppItem *app : currentItem->getSubApps()) {
         QListWidgetItem *item = new QListWidgetItem();
         item->setText(app->getName());
-        item->setIcon(app->getIcon());  // 使用getIcon方法
+        item->setIcon(app->getIcon());
         item->setData(Qt::UserRole, QVariant::fromValue<void*>(static_cast<void*>(app)));
         ui->iconListWidget->addItem(item);
     }
-    
-    // 添加功能项
+
     for (FuncItem *func : currentItem->getFuncs()) {
         QListWidgetItem *item = new QListWidgetItem();
         item->setText(func->getName());
-        item->setIcon(func->getIcon());  // 使用getIcon方法
+        item->setIcon(func->getIcon());
         item->setData(Qt::UserRole, QVariant::fromValue<void*>(static_cast<void*>(func)));
         ui->iconListWidget->addItem(item);
     }
-    
-    // 添加+添加项
+
     QListWidgetItem *addItem = new QListWidgetItem();
-    addItem->setText("+添加");
+    addItem->setText(tr("+ Add"));
     addItem->setIcon(IconGenerator::generateIcon("+", Qt::lightGray, Qt::white, 64));
     addItem->setData(Qt::UserRole, QVariant::fromValue<void*>(nullptr));
     ui->iconListWidget->addItem(addItem);
@@ -292,22 +320,20 @@ void MainWindow::refreshIconList()
 void MainWindow::onIconListItemClicked(QListWidgetItem *item)
 {
     if (!item) return;
-    
+
     void *data = item->data(Qt::UserRole).value<void*>();
-    
+
     if (!data) {
-        // +添加项被点击
         QMessageBox msgBox(this);
-        msgBox.setWindowTitle(tr("选择添加类型"));
-        msgBox.setText(tr("请选择要添加的类型："));
-        
-        // 存储按钮指针以便比较
-        QPushButton *appBtn = msgBox.addButton(tr("添加应用"), QMessageBox::ActionRole);
-        QPushButton *funcBtn = msgBox.addButton(tr("添加功能"), QMessageBox::ActionRole);
-        msgBox.addButton(tr("取消"), QMessageBox::RejectRole);
-        
+        msgBox.setWindowTitle(tr("Select Type"));
+        msgBox.setText(tr("Please select the type to add:"));
+
+        QPushButton *appBtn = msgBox.addButton(tr("Add App"), QMessageBox::ActionRole);
+        QPushButton *funcBtn = msgBox.addButton(tr("Add Function"), QMessageBox::ActionRole);
+        msgBox.addButton(tr("Cancel"), QMessageBox::RejectRole);
+
         msgBox.exec();
-        
+
         QAbstractButton *clickedBtn = msgBox.clickedButton();
         if (clickedBtn == appBtn) {
             onAddAppClicked();
@@ -316,21 +342,17 @@ void MainWindow::onIconListItemClicked(QListWidgetItem *item)
         }
         return;
     }
-    
-    // 检查是AppItem还是FuncItem
+
     AppItem *appItem = reinterpret_cast<AppItem*>(data);
     FuncItem *funcItem = reinterpret_cast<FuncItem*>(data);
-    
-    // 尝试转换为AppItem
+
     if (appItem && currentItem->getSubApps().contains(appItem)) {
-        // 打开新的MainWindow显示该应用项
         MainWindow *newWindow = new MainWindow(appItem, this);
+        newWindow->setAttribute(Qt::WA_DeleteOnClose);
         newWindow->show();
         this->hide();
-    } 
-    // 尝试转换为FuncItem
+    }
     else if (funcItem && currentItem->getFuncs().contains(funcItem)) {
-        // 运行所有命令
         for (const QString &cmd : funcItem->getCmds()) {
             QProcess::startDetached(cmd);
         }
@@ -365,35 +387,30 @@ void MainWindow::onAddFuncClicked()
 
 void MainWindow::onOpenConfig()
 {
-    // 打开配置文件
     QString configPath = QDir::current().absoluteFilePath(CONFIG_FILE_PATH);
     QFileInfo fileInfo(configPath);
-    
+
     if (fileInfo.exists()) {
-        // 使用系统默认程序打开配置文件
         QUrl fileUrl = QUrl::fromLocalFile(configPath);
         QDesktopServices::openUrl(fileUrl);
     } else {
-        QMessageBox::warning(this, tr("打开配置"), 
-            tr("配置文件不存在：%1").arg(configPath));
+        QMessageBox::warning(this, tr("Open Config"),
+            tr("Config file not found: %1").arg(configPath));
     }
 }
 
 void MainWindow::onExit()
 {
-    // 退出
-    QApplication::quit();
+    close();
 }
 
 void MainWindow::onAboutQuickStart()
 {
-    // 关于QuickStart
-    QMessageBox::about(this, tr("关于QuickStart"), 
+    QMessageBox::about(this, tr("About QuickStart"),
         AppConfig::aboutHtml());
 }
 
 void MainWindow::onAboutQt()
 {
-    // 关于Qt
-    QMessageBox::aboutQt(this, tr("关于Qt"));
+    QMessageBox::aboutQt(this, tr("About Qt"));
 }
