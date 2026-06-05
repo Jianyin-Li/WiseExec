@@ -3,6 +3,7 @@
 #include <QJsonArray>
 #include <QFile>
 #include <QFileInfo>
+#include <yaml-cpp/yaml.h>
 
 AppItem::AppItem(QObject *parent)
     : QObject(parent)
@@ -113,5 +114,57 @@ void AppItem::fromJson(const QJsonObject &obj)
         FuncItem *func = new FuncItem(this);
         func->fromJson(value.toObject());
         funcs.append(func);
+    }
+}
+
+YAML::Node AppItem::toYaml() const
+{
+    YAML::Node node;
+    node["name"] = name.toStdString();
+    node["iconPath"] = iconPath.toStdString();
+
+    for (const AppItem *app : subApps) {
+        node["subApps"].push_back(app->toYaml());
+    }
+
+    for (const FuncItem *func : funcs) {
+        node["funcs"].push_back(func->toYaml());
+    }
+
+    return node;
+}
+
+void AppItem::fromYaml(const YAML::Node &node)
+{
+    if (node["name"]) {
+        name = QString::fromStdString(node["name"].as<std::string>());
+    }
+    if (node["iconPath"]) {
+        iconPath = QString::fromStdString(node["iconPath"].as<std::string>());
+    }
+
+    for (AppItem *app : subApps) {
+        app->deleteLater();
+    }
+    for (FuncItem *func : funcs) {
+        func->deleteLater();
+    }
+    subApps.clear();
+    funcs.clear();
+
+    if (node["subApps"] && node["subApps"].IsSequence()) {
+        for (const auto &child : node["subApps"]) {
+            AppItem *app = new AppItem(this);
+            app->fromYaml(child);
+            subApps.append(app);
+        }
+    }
+
+    if (node["funcs"] && node["funcs"].IsSequence()) {
+        for (const auto &child : node["funcs"]) {
+            FuncItem *func = new FuncItem(this);
+            func->fromYaml(child);
+            funcs.append(func);
+        }
     }
 }

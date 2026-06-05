@@ -26,11 +26,11 @@ FuncConfigDialog::FuncConfigDialog(QWidget *parent)
     ui->iconPathEdit->setReadOnly(true);
 }
 
-FuncConfigDialog::FuncConfigDialog(FuncItem *existingItem, QWidget *parent)
+FuncConfigDialog::FuncConfigDialog(FuncItem *existing, QWidget *parent)
     : QDialog(parent)
     , ui(new Ui::FuncConfigDialog)
     , newFunc(nullptr)
-    , existingItem(existingItem)
+    , existingItem(existing)
 {
     ui->setupUi(this);
 
@@ -89,15 +89,8 @@ void FuncConfigDialog::onAddCmdClicked()
         &ok);
 
     if (ok && !command.trimmed().isEmpty()) {
-        bool exists = false;
-        for (int i = 0; i < ui->cmdListWidget->count(); ++i) {
-            if (ui->cmdListWidget->item(i)->text() == command.trimmed()) {
-                exists = true;
-                break;
-            }
-        }
-
-        if (!exists) {
+        auto items = ui->cmdListWidget->findItems(command.trimmed(), Qt::MatchExactly);
+        if (items.isEmpty()) {
             ui->cmdListWidget->addItem(command.trimmed());
         } else {
             QMessageBox::information(this, tr("Notice"), tr("This command already exists"));
@@ -120,15 +113,8 @@ void FuncConfigDialog::onSelectExeClicked()
         filter);
 
     if (!fileName.isEmpty()) {
-        bool exists = false;
-        for (int i = 0; i < ui->cmdListWidget->count(); ++i) {
-            if (ui->cmdListWidget->item(i)->text() == fileName) {
-                exists = true;
-                break;
-            }
-        }
-
-        if (!exists) {
+        auto items = ui->cmdListWidget->findItems(fileName, Qt::MatchExactly);
+        if (items.isEmpty()) {
             ui->cmdListWidget->addItem(fileName);
         } else {
             QMessageBox::information(this, tr("Notice"), tr("This file already exists"));

@@ -21,11 +21,11 @@ AppConfigDialog::AppConfigDialog(QWidget *parent)
     ui->iconPathEdit->setReadOnly(true);
 }
 
-AppConfigDialog::AppConfigDialog(AppItem *existingItem, QWidget *parent)
+AppConfigDialog::AppConfigDialog(AppItem *existing, QWidget *parent)
     : QDialog(parent)
     , ui(new Ui::AppConfigDialog)
     , newApp(nullptr)
-    , existingItem(existingItem)
+    , existingItem(existing)
 {
     ui->setupUi(this);
 

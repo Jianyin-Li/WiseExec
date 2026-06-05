@@ -14,7 +14,7 @@ class FuncConfigDialog : public QDialog
 
 public:
     explicit FuncConfigDialog(QWidget *parent = nullptr);
-    explicit FuncConfigDialog(FuncItem *existingItem, QWidget *parent = nullptr);
+    explicit FuncConfigDialog(FuncItem *existing, QWidget *parent = nullptr);
     ~FuncConfigDialog();
     
     FuncItem* getNewFunc() const;

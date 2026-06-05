@@ -7,6 +7,7 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QIcon>
+#include <yaml-cpp/yaml.h>
 
 class FuncItem : public QObject
 {
@@ -31,6 +32,9 @@ public:
     
     QJsonObject toJson() const;
     void fromJson(const QJsonObject &obj);
+
+    YAML::Node toYaml() const;
+    void fromYaml(const YAML::Node &node);
 
 private:
     QString name;

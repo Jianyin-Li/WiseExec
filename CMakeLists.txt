@@ -45,6 +45,9 @@ set(CMAKE_AUTORCC ON)
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets)
 
+# 查找 yaml-cpp
+find_package(yaml-cpp CONFIG REQUIRED)
+
 # 设置 UI 文件搜索路径
 set(CMAKE_AUTOUIC_SEARCH_PATHS "${CMAKE_CURRENT_SOURCE_DIR}/ui")
 
@@ -146,6 +149,7 @@ target_include_directories(${PROJECT_NAME}_objs
 target_link_libraries(${PROJECT_NAME}_objs 
     PRIVATE 
         Qt${QT_VERSION_MAJOR}::Widgets
+        yaml-cpp::yaml-cpp
 )
 
 # 编译定义
@@ -164,6 +168,7 @@ add_executable(${PROJECT_NAME} $<TARGET_OBJECTS:${PROJECT_NAME}_objs>)
 target_link_libraries(${PROJECT_NAME} 
     PRIVATE 
         Qt${QT_VERSION_MAJOR}::Widgets
+        yaml-cpp::yaml-cpp
 )
 
 #=============================================================================

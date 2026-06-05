@@ -25,7 +25,8 @@
 - Headers in `include/`, sources in `src/`, Qt UI files in `ui/`
 - AUTOUIC generates to build dir; sources include generated UI as `"../ui/ui_*.h"`
 - `resources.qrc` at project root registers resources (`style.qss`, icons)
-- `config.json` loaded at runtime from CWD (not compiled in); app metadata in `include/config.h`
+- `config.yaml` loaded at runtime from CWD (primary); falls back to `config.json` for backward compatibility; app metadata in `include/config.h`
+- Requires `yaml-cpp` (libyaml-cpp-dev on Debian/Ubuntu); linked via `find_package(yaml-cpp CONFIG REQUIRED)`
 - `VERSION` file at repo root - contains current project version number
 - `tools/test-tools/` has standalone test utilities (e.g. `test_icon_generator.cpp`)
 - **Translation**: `QuickStart_zh_CN.ts` in root; loaded from `:/i18n/` resource path; compile `.ts` → `.qm` and bundle in qrc to enable

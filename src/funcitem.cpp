@@ -3,6 +3,7 @@
 #include <QJsonArray>
 #include <QFile>
 #include <QFileInfo>
+#include <yaml-cpp/yaml.h>
 
 FuncItem::FuncItem(QObject *parent)
     : QObject(parent)
@@ -69,5 +70,35 @@ void FuncItem::fromJson(const QJsonObject &obj)
     QJsonArray cmdsArray = obj["cmds"].toArray();
     for (const QJsonValue &value : cmdsArray) {
         cmds.append(value.toString());
+    }
+}
+
+YAML::Node FuncItem::toYaml() const
+{
+    YAML::Node node;
+    node["name"] = name.toStdString();
+    node["iconPath"] = iconPath.toStdString();
+
+    for (const QString &cmd : cmds) {
+        node["cmds"].push_back(cmd.toStdString());
+    }
+
+    return node;
+}
+
+void FuncItem::fromYaml(const YAML::Node &node)
+{
+    if (node["name"]) {
+        name = QString::fromStdString(node["name"].as<std::string>());
+    }
+    if (node["iconPath"]) {
+        iconPath = QString::fromStdString(node["iconPath"].as<std::string>());
+    }
+
+    cmds.clear();
+    if (node["cmds"] && node["cmds"].IsSequence()) {
+        for (const auto &cmd : node["cmds"]) {
+            cmds.append(QString::fromStdString(cmd.as<std::string>()));
+        }
     }
 }

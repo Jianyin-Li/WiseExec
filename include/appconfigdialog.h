@@ -14,7 +14,7 @@ class AppConfigDialog : public QDialog
 
 public:
     explicit AppConfigDialog(QWidget *parent = nullptr);
-    explicit AppConfigDialog(AppItem *existingItem, QWidget *parent = nullptr);
+    explicit AppConfigDialog(AppItem *existing, QWidget *parent = nullptr);
     ~AppConfigDialog();
     
     AppItem* getNewApp() const;

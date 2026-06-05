@@ -41,12 +41,12 @@
       <property name="resizeMode">
        <enum>QListView::ResizeMode::Adjust</enum>
       </property>
-      <property name="gridSize">
-       <size>
-        <width>100</width>
-        <height>100</height>
-       </size>
-      </property>
+       <property name="gridSize">
+        <size>
+         <width>120</width>
+         <height>130</height>
+        </size>
+       </property>
       <property name="viewMode">
        <enum>QListView::ViewMode::IconMode</enum>
       </property>

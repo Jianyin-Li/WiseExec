@@ -15,6 +15,7 @@ namespace AppConfig {
     inline const QString APP_DESCRIPTION = "A simple app launcher tool";
 
     inline const QString CONFIG_FILE_PATH = "./config.json";
+    inline const QString CONFIG_FILE_PATH_YAML = "./config.yaml";
 
     inline const QString APP_ICON_PATH = ":/resources/app_icon.ico";
 

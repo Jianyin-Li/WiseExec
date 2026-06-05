@@ -15,16 +15,18 @@
 #include <QDesktopServices>
 #include <QUrl>
 #include <QFileInfo>
+#include <QLocale>
+#include <yaml-cpp/yaml.h>
 
 namespace {
 enum ItemTag { TagNull = 0, TagAppItem = 1, TagFuncItem = 2 };
 }
 
-MainWindow::MainWindow(AppItem *currentItem, QWidget *parent)
+MainWindow::MainWindow(AppItem *initialItem, QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
     , delegate(nullptr)
-    , currentItem(currentItem)
+    , currentItem(initialItem)
     , rootItem(nullptr)
     , contextMenu(nullptr)
     , editAction(nullptr)
@@ -87,6 +89,9 @@ MainWindow::MainWindow(AppItem *currentItem, QWidget *parent)
 
 MainWindow::~MainWindow()
 {
+    if (currentTranslator) {
+        qApp->removeTranslator(currentTranslator);
+    }
     delete ui;
     delete rootItem;
     if (contextMenu) {
@@ -96,8 +101,10 @@ MainWindow::~MainWindow()
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
+    saveConfig();
     MainWindow *parentMain = qobject_cast<MainWindow*>(parent());
     if (parentMain) {
+        parentMain->refreshIconList();
         parentMain->show();
     }
     QMainWindow::closeEvent(event);
@@ -105,8 +112,7 @@ void MainWindow::closeEvent(QCloseEvent *event)
 
 void MainWindow::changeEvent(QEvent *event)
 {
-    if (event->type() == QEvent::LanguageChange) {
-        if (!currentItem) return;
+    if (event->type() == QEvent::LanguageChange && currentItem) {
         ui->retranslateUi(this);
         retranslateLanguageToggle();
         QString name = currentItem->getName().isEmpty() ? tr("Home") : currentItem->getName();
@@ -122,7 +128,10 @@ void MainWindow::setupLanguageToggle()
     languageCombo = new QComboBox(this);
     languageCombo->addItem("English", QString("en"));
     languageCombo->addItem("中文", QString("zh_CN"));
-    languageCombo->setCurrentIndex(0);
+
+    QString systemLocale = QLocale::system().name();
+    int defaultIndex = (systemLocale == "zh_CN") ? 1 : 0;
+    languageCombo->setCurrentIndex(defaultIndex);
 
     connect(languageCombo, &QComboBox::currentIndexChanged, this, &MainWindow::onLanguageChanged);
 
@@ -131,11 +140,13 @@ void MainWindow::setupLanguageToggle()
 
     retranslateLanguageToggle();
 
-    // Install initial English translator
     QTranslator *initialTranslator = new QTranslator(this);
-    if (initialTranslator->load(":/i18n/QuickStart_en")) {
+    QString locale = languageCombo->itemData(defaultIndex).toString();
+    if (initialTranslator->load(":/i18n/QuickStart_" + locale)) {
         currentTranslator = initialTranslator;
         qApp->installTranslator(initialTranslator);
+    } else {
+        delete initialTranslator;
     }
 }
 
@@ -152,8 +163,8 @@ void MainWindow::onLanguageChanged(int index)
 
     QTranslator *translator = new QTranslator(this);
     if (translator->load(":/i18n/QuickStart_" + locale)) {
-        qApp->removeTranslator(currentTranslator);
         if (currentTranslator) {
+            qApp->removeTranslator(currentTranslator);
             delete currentTranslator;
         }
         currentTranslator = translator;
@@ -210,6 +221,7 @@ void MainWindow::onEditItem()
                     if (index != -1) {
                         currentItem->removeSubApp(appItem);
                         currentItem->addSubApp(newApp);
+                        contextMenuItem = nullptr;
                         refreshIconList();
                         saveConfig();
                     }
@@ -228,6 +240,7 @@ void MainWindow::onEditItem()
                     if (index != -1) {
                         currentItem->removeFunc(funcItem);
                         currentItem->addFunc(newFunc);
+                        contextMenuItem = nullptr;
                         refreshIconList();
                         saveConfig();
                     }
@@ -256,16 +269,20 @@ void MainWindow::onDeleteItem()
             auto *appItem = static_cast<AppItem*>(contextMenuItem->data(Qt::UserRole).value<QObject*>());
             if (currentItem->getSubApps().contains(appItem)) {
                 currentItem->removeSubApp(appItem);
+                contextMenuItem = nullptr;
                 refreshIconList();
                 saveConfig();
+                return;
             }
         }
         else if (tag == TagFuncItem) {
             auto *funcItem = static_cast<FuncItem*>(contextMenuItem->data(Qt::UserRole).value<QObject*>());
             if (currentItem->getFuncs().contains(funcItem)) {
                 currentItem->removeFunc(funcItem);
+                contextMenuItem = nullptr;
                 refreshIconList();
                 saveConfig();
+                return;
             }
         }
     }
@@ -273,10 +290,27 @@ void MainWindow::onDeleteItem()
 
 void MainWindow::loadConfig()
 {
-    QFile configFile(AppConfig::CONFIG_FILE_PATH);
-    if (configFile.exists() && configFile.open(QIODevice::ReadOnly)) {
-        QByteArray data = configFile.readAll();
-        configFile.close();
+    QFile yamlFile(AppConfig::CONFIG_FILE_PATH_YAML);
+    if (yamlFile.exists() && yamlFile.open(QIODevice::ReadOnly)) {
+        QByteArray data = yamlFile.readAll();
+        yamlFile.close();
+
+        try {
+            YAML::Node rootNode = YAML::Load(data.toStdString());
+            if (rootNode && rootNode.IsMap()) {
+                auto *newRoot = new AppItem();
+                newRoot->fromYaml(rootNode);
+                rootItem = newRoot;
+                return;
+            }
+        } catch (const YAML::Exception &) {
+        }
+    }
+
+    QFile jsonFile(AppConfig::CONFIG_FILE_PATH);
+    if (jsonFile.exists() && jsonFile.open(QIODevice::ReadOnly)) {
+        QByteArray data = jsonFile.readAll();
+        jsonFile.close();
 
         QJsonDocument doc = QJsonDocument::fromJson(data);
         if (!doc.isNull() && doc.isObject()) {
@@ -294,12 +328,18 @@ void MainWindow::saveConfig()
 {
     if (!rootItem) return;
 
-    QJsonObject rootObj = rootItem->toJson();
-    QJsonDocument doc(rootObj);
+    YAML::Node rootNode = rootItem->toYaml();
+    YAML::Emitter emitter;
+    emitter.SetIndent(4);
+    emitter << rootNode;
+    if (!emitter.good()) {
+        QMessageBox::warning(this, tr("Error"), tr("Failed to serialize config: %1").arg(emitter.GetLastError().c_str()));
+        return;
+    }
 
-    QFile configFile(AppConfig::CONFIG_FILE_PATH);
+    QFile configFile(AppConfig::CONFIG_FILE_PATH_YAML);
     if (configFile.open(QIODevice::WriteOnly)) {
-        configFile.write(doc.toJson());
+        configFile.write(emitter.c_str());
         configFile.close();
     } else {
         QMessageBox::warning(this, tr("Notice"), tr("Failed to save config file, please check file permissions"));
@@ -416,8 +456,13 @@ void MainWindow::onAddFuncClicked()
 
 void MainWindow::onOpenConfig()
 {
-    QString configPath = QDir::current().absoluteFilePath(AppConfig::CONFIG_FILE_PATH);
+    QString configPath = QDir::current().absoluteFilePath(AppConfig::CONFIG_FILE_PATH_YAML);
     QFileInfo fileInfo(configPath);
+
+    if (!fileInfo.exists()) {
+        configPath = QDir::current().absoluteFilePath(AppConfig::CONFIG_FILE_PATH);
+        fileInfo = QFileInfo(configPath);
+    }
 
     if (fileInfo.exists()) {
         QUrl fileUrl = QUrl::fromLocalFile(configPath);
