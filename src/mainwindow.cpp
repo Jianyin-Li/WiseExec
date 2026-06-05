@@ -21,6 +21,38 @@
 
 namespace {
 enum ItemTag { TagNull = 0, TagAppItem = 1, TagFuncItem = 2 };
+
+const QString DARK_OVERLAYS = QStringLiteral(
+    "QMainWindow, QDialog, QWidget { background-color: #1e1e1e; color: #e0e0e0; }"
+    "QDialog { background-color: #2d2d2d; }"
+    "QMenuBar { background-color: #1565c0; }"
+    "QMenu { background-color: #2d2d2d; border: 1px solid #444444; }"
+    "QMenu::item { color: #e0e0e0; }"
+    "QMenu::item:selected { background-color: #1a73e8; color: #ffffff; }"
+    "QMenu::separator { background-color: #444444; }"
+    "QListWidget#cmdListWidget { background-color: #252525; border: 1px solid #444444; color: #e0e0e0; }"
+    "QListWidget#cmdListWidget::item { color: #e0e0e0; }"
+    "QListWidget#cmdListWidget::item:hover { background-color: #1a3a6a; }"
+    "QListWidget#cmdListWidget::item:selected { background-color: #1a3a6a; color: #90caf9; }"
+    "QPushButton { background-color: #1565c0; }"
+    "QPushButton:hover { background-color: #1976d2; }"
+    "QPushButton#cancelBtn { background-color: #424242; color: #e0e0e0; border: 1px solid #555555; }"
+    "QPushButton#cancelBtn:hover { background-color: #505050; }"
+    "QPushButton#selectIconBtn { background-color: #333333; color: #90caf9; border: 1px solid #555555; }"
+    "QPushButton#selectIconBtn:hover { background-color: #1a3a6a; }"
+    "QLineEdit { background-color: #333333; border: 1.5px solid #555555; color: #e0e0e0; }"
+    "QLineEdit:focus { border-color: #1565c0; }"
+    "QLineEdit:read-only { background-color: #2a2a2a; }"
+    "QGroupBox { color: #aaaaaa; border: 1.5px solid #444444; }"
+    "QGroupBox::title { background-color: #2d2d2d; color: #90caf9; }"
+    "QStatusBar { background-color: #252525; border-top: 1px solid #333333; color: #aaaaaa; }"
+    "QScrollBar::handle:vertical, QScrollBar::handle:horizontal { background: #555555; }"
+    "QScrollBar::handle:vertical:hover, QScrollBar::handle:horizontal:hover { background: #666666; }"
+    "QLabel { color: #cccccc; }"
+    "QMessageBox { background-color: #2d2d2d; }"
+    "QMessageBox QLabel { color: #e0e0e0; }"
+    "QComboBox QAbstractItemView { background-color: #2d2d2d; color: #e0e0e0; selection-background-color: #1a3a6a; selection-color: #90caf9; }"
+);
 }
 
 MainWindow::MainWindow(AppItem *initialItem, QWidget *parent)
@@ -62,6 +94,7 @@ MainWindow::MainWindow(AppItem *initialItem, QWidget *parent)
     actionQt = ui->actionQt;
     actionApp = ui->actionApp;
     actionFunc = ui->actionFunc;
+    actionToggleDarkMode = ui->actionToggleDarkMode;
 
     connect(actionOpen_config, &QAction::triggered, this, &MainWindow::onOpenConfig);
     connect(actionExit, &QAction::triggered, this, &MainWindow::onExit);
@@ -69,6 +102,13 @@ MainWindow::MainWindow(AppItem *initialItem, QWidget *parent)
     connect(actionQt, &QAction::triggered, this, &MainWindow::onAboutQt);
     connect(actionApp, &QAction::triggered, this, &MainWindow::onAddAppClicked);
     connect(actionFunc, &QAction::triggered, this, &MainWindow::onAddFuncClicked);
+    connect(actionToggleDarkMode, &QAction::toggled, this, &MainWindow::onToggleDarkMode);
+
+    QFile styleFile(":/resources/style.qss");
+    if (styleFile.open(QIODevice::ReadOnly)) {
+        m_lightStyleSheet = QString::fromUtf8(styleFile.readAll());
+        styleFile.close();
+    }
 
     loadConfig();
 
@@ -77,6 +117,10 @@ MainWindow::MainWindow(AppItem *initialItem, QWidget *parent)
     }
 
     setupLanguageToggle();
+
+    if (m_darkMode) {
+        actionToggleDarkMode->setChecked(true);
+    }
 
     QString name = this->currentItem->getName().isEmpty() ? tr("Home") : this->currentItem->getName();
     setWindowTitle(tr("App Launcher - %1").arg(name));
@@ -146,6 +190,16 @@ void MainWindow::setupLanguageToggle()
     langLayout->setContentsMargins(0, 0, 8, 0);
     langLayout->addWidget(languageLabel);
     langLayout->addWidget(languageCombo);
+    langContainer->setStyleSheet(
+        "QLabel { color: #ffffff; font-size: 12px; }"
+        "QComboBox { background-color: rgba(255,255,255,0.15); color: #ffffff; "
+        "  border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; "
+        "  padding: 2px 6px; font-size: 12px; min-width: 80px; }"
+        "QComboBox:hover { background-color: rgba(255,255,255,0.25); }"
+        "QComboBox::drop-down { border: none; }"
+        "QComboBox QAbstractItemView { background-color: #ffffff; color: #2c3e50; "
+        "  selection-background-color: #e8f0fe; selection-color: #1a73e8; }"
+    );
     ui->menubar->setCornerWidget(langContainer, Qt::TopRightCorner);
 
     retranslateLanguageToggle();
@@ -182,6 +236,17 @@ void MainWindow::onLanguageChanged(int index)
     } else {
         delete translator;
     }
+}
+
+void MainWindow::onToggleDarkMode(bool checked)
+{
+    m_darkMode = checked;
+    if (checked) {
+        qApp->setStyleSheet(m_lightStyleSheet + "\n" + DARK_OVERLAYS);
+    } else {
+        qApp->setStyleSheet(m_lightStyleSheet);
+    }
+    saveConfig();
 }
 
 void MainWindow::setupContextMenu()
@@ -311,6 +376,10 @@ void MainWindow::loadConfig()
                 if (rootNode["language"]) {
                     m_savedLanguage = QString::fromStdString(rootNode["language"].as<std::string>());
                 }
+                if (rootNode["theme"]) {
+                    QString theme = QString::fromStdString(rootNode["theme"].as<std::string>());
+                    m_darkMode = (theme == "dark");
+                }
                 auto *newRoot = new AppItem();
                 newRoot->fromYaml(rootNode);
                 rootItem = newRoot;
@@ -345,6 +414,7 @@ void MainWindow::saveConfig()
     if (languageCombo) {
         rootNode["language"] = languageCombo->currentData().toString().toStdString();
     }
+    rootNode["theme"] = m_darkMode ? "dark" : "light";
     YAML::Emitter emitter;
     emitter.SetIndent(4);
     emitter << rootNode;

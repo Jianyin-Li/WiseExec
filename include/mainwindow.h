@@ -44,6 +44,7 @@ private slots:
     void onAboutQuickStart();
     void onAboutQt();
     void onLanguageChanged(int index);
+    void onToggleDarkMode(bool checked);
 
 private:
     void refreshIconList();
@@ -70,10 +71,13 @@ private:
     QAction *actionQt;
     QAction *actionApp;
     QAction *actionFunc;
+    QAction *actionToggleDarkMode;
 
     QLabel *languageLabel = nullptr;
     QComboBox *languageCombo = nullptr;
     QString m_savedLanguage;
+    bool m_darkMode = false;
+    QString m_lightStyleSheet;
 };
 #endif // MAINWINDOW_H
 
