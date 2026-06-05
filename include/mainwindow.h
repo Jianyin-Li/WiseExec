@@ -73,6 +73,7 @@ private:
 
     QLabel *languageLabel = nullptr;
     QComboBox *languageCombo = nullptr;
+    QString m_savedLanguage;
 };
 #endif // MAINWINDOW_H
 

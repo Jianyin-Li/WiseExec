@@ -16,6 +16,7 @@
 #include <QUrl>
 #include <QFileInfo>
 #include <QLocale>
+#include <QHBoxLayout>
 #include <yaml-cpp/yaml.h>
 
 namespace {
@@ -129,20 +130,28 @@ void MainWindow::setupLanguageToggle()
     languageCombo->addItem("English", QString("en"));
     languageCombo->addItem("中文", QString("zh_CN"));
 
-    QString systemLocale = QLocale::system().name();
-    int defaultIndex = (systemLocale == "zh_CN") ? 1 : 0;
+    QString lang;
+    if (!m_savedLanguage.isEmpty()) {
+        lang = m_savedLanguage;
+    } else {
+        lang = (QLocale::system().name() == "zh_CN") ? "zh_CN" : "en";
+    }
+    int defaultIndex = (lang == "zh_CN") ? 1 : 0;
     languageCombo->setCurrentIndex(defaultIndex);
 
     connect(languageCombo, &QComboBox::currentIndexChanged, this, &MainWindow::onLanguageChanged);
 
-    ui->statusbar->addPermanentWidget(languageLabel);
-    ui->statusbar->addPermanentWidget(languageCombo);
+    QWidget *langContainer = new QWidget(this);
+    QHBoxLayout *langLayout = new QHBoxLayout(langContainer);
+    langLayout->setContentsMargins(0, 0, 8, 0);
+    langLayout->addWidget(languageLabel);
+    langLayout->addWidget(languageCombo);
+    ui->menubar->setCornerWidget(langContainer, Qt::TopRightCorner);
 
     retranslateLanguageToggle();
 
     QTranslator *initialTranslator = new QTranslator(this);
-    QString locale = languageCombo->itemData(defaultIndex).toString();
-    if (initialTranslator->load(":/i18n/QuickStart_" + locale)) {
+    if (initialTranslator->load(":/i18n/QuickStart_" + lang)) {
         currentTranslator = initialTranslator;
         qApp->installTranslator(initialTranslator);
     } else {
@@ -169,6 +178,7 @@ void MainWindow::onLanguageChanged(int index)
         }
         currentTranslator = translator;
         qApp->installTranslator(translator);
+        saveConfig();
     } else {
         delete translator;
     }
@@ -298,6 +308,9 @@ void MainWindow::loadConfig()
         try {
             YAML::Node rootNode = YAML::Load(data.toStdString());
             if (rootNode && rootNode.IsMap()) {
+                if (rootNode["language"]) {
+                    m_savedLanguage = QString::fromStdString(rootNode["language"].as<std::string>());
+                }
                 auto *newRoot = new AppItem();
                 newRoot->fromYaml(rootNode);
                 rootItem = newRoot;
@@ -329,6 +342,9 @@ void MainWindow::saveConfig()
     if (!rootItem) return;
 
     YAML::Node rootNode = rootItem->toYaml();
+    if (languageCombo) {
+        rootNode["language"] = languageCombo->currentData().toString().toStdString();
+    }
     YAML::Emitter emitter;
     emitter.SetIndent(4);
     emitter << rootNode;

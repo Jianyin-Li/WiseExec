@@ -31,3 +31,6 @@
 - `tools/test-tools/` has standalone test utilities (e.g. `test_icon_generator.cpp`)
 - **Translation**: `QuickStart_zh_CN.ts` in root; loaded from `:/i18n/` resource path; compile `.ts` → `.qm` and bundle in qrc to enable
 - `IconGenerator` utility class for programmatic icon creation
+
+## Qt/C++ UI Design Philosophy
+A practical Qt/C++ UI adapts automatically via layouts, stays consistent and modern through theming and dark mode support, remains responsive by offloading blocking work from the main thread, and nails the small details like stretch factors and icon strategies.
