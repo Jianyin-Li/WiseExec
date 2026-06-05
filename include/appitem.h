@@ -26,8 +26,8 @@ public:
     
     QIcon getIcon() const;
     
-    QList<AppItem*> getSubApps() const { return subApps; }
-    QList<FuncItem*> getFuncs() const { return funcs; }
+    const QList<AppItem*>& getSubApps() const { return subApps; }
+    const QList<FuncItem*>& getFuncs() const { return funcs; }
     
     void addSubApp(AppItem *app);
     void addFunc(FuncItem *func);

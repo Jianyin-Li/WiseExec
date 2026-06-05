@@ -14,6 +14,11 @@
 #include <QIcon>
 #include <QDesktopServices>
 #include <QUrl>
+#include <QFileInfo>
+
+namespace {
+enum ItemTag { TagNull = 0, TagAppItem = 1, TagFuncItem = 2 };
+}
 
 MainWindow::MainWindow(AppItem *currentItem, QWidget *parent)
     : QMainWindow(parent)
@@ -34,7 +39,7 @@ MainWindow::MainWindow(AppItem *currentItem, QWidget *parent)
 {
     ui->setupUi(this);
 
-    setWindowIcon(QIcon(":/app_icon.ico"));
+    setWindowIcon(QIcon(":/resources/app_icon.ico"));
     setMinimumSize(640, 480);
 
     delegate = new IconListDelegate(this);
@@ -83,6 +88,7 @@ MainWindow::MainWindow(AppItem *currentItem, QWidget *parent)
 MainWindow::~MainWindow()
 {
     delete ui;
+    delete rootItem;
     if (contextMenu) {
         delete contextMenu;
     }
@@ -100,6 +106,7 @@ void MainWindow::closeEvent(QCloseEvent *event)
 void MainWindow::changeEvent(QEvent *event)
 {
     if (event->type() == QEvent::LanguageChange) {
+        if (!currentItem) return;
         ui->retranslateUi(this);
         retranslateLanguageToggle();
         QString name = currentItem->getName().isEmpty() ? tr("Home") : currentItem->getName();
@@ -123,6 +130,13 @@ void MainWindow::setupLanguageToggle()
     ui->statusbar->addPermanentWidget(languageCombo);
 
     retranslateLanguageToggle();
+
+    // Install initial English translator
+    QTranslator *initialTranslator = new QTranslator(this);
+    if (initialTranslator->load(":/i18n/QuickStart_en")) {
+        currentTranslator = initialTranslator;
+        qApp->installTranslator(initialTranslator);
+    }
 }
 
 void MainWindow::retranslateLanguageToggle()
@@ -172,8 +186,8 @@ void MainWindow::showContextMenu(const QPoint &pos)
     contextMenuItem = ui->iconListWidget->itemAt(pos);
 
     if (contextMenuItem) {
-        void *data = contextMenuItem->data(Qt::UserRole).value<void*>();
-        if (!data) {
+        int tag = contextMenuItem->data(Qt::UserRole + 1).toInt();
+        if (tag == TagNull) {
             return;
         }
         contextMenu->exec(ui->iconListWidget->mapToGlobal(pos));
@@ -184,38 +198,39 @@ void MainWindow::onEditItem()
 {
     if (!contextMenuItem || !currentItem) return;
 
-    void *data = contextMenuItem->data(Qt::UserRole).value<void*>();
-    if (!data) return;
-
-    AppItem *appItem = reinterpret_cast<AppItem*>(data);
-    FuncItem *funcItem = reinterpret_cast<FuncItem*>(data);
-
-    if (appItem && currentItem->getSubApps().contains(appItem)) {
-        AppConfigDialog dialog(appItem, this);
-        if (dialog.exec() == QDialog::Accepted) {
-            AppItem *newApp = dialog.getNewApp();
-            if (newApp) {
-                int index = currentItem->getSubApps().indexOf(appItem);
-                if (index != -1) {
-                    currentItem->removeSubApp(appItem);
-                    currentItem->addSubApp(newApp);
-                    refreshIconList();
-                    saveConfig();
+    int tag = contextMenuItem->data(Qt::UserRole + 1).toInt();
+    if (tag == TagAppItem) {
+        auto *appItem = static_cast<AppItem*>(contextMenuItem->data(Qt::UserRole).value<QObject*>());
+        if (currentItem->getSubApps().contains(appItem)) {
+            AppConfigDialog dialog(appItem, this);
+            if (dialog.exec() == QDialog::Accepted) {
+                AppItem *newApp = dialog.getNewApp();
+                if (newApp) {
+                    int index = currentItem->getSubApps().indexOf(appItem);
+                    if (index != -1) {
+                        currentItem->removeSubApp(appItem);
+                        currentItem->addSubApp(newApp);
+                        refreshIconList();
+                        saveConfig();
+                    }
                 }
             }
         }
     }
-    else if (funcItem && currentItem->getFuncs().contains(funcItem)) {
-        FuncConfigDialog dialog(funcItem, this);
-        if (dialog.exec() == QDialog::Accepted) {
-            FuncItem *newFunc = dialog.getNewFunc();
-            if (newFunc) {
-                int index = currentItem->getFuncs().indexOf(funcItem);
-                if (index != -1) {
-                    currentItem->removeFunc(funcItem);
-                    currentItem->addFunc(newFunc);
-                    refreshIconList();
-                    saveConfig();
+    else if (tag == TagFuncItem) {
+        auto *funcItem = static_cast<FuncItem*>(contextMenuItem->data(Qt::UserRole).value<QObject*>());
+        if (currentItem->getFuncs().contains(funcItem)) {
+            FuncConfigDialog dialog(funcItem, this);
+            if (dialog.exec() == QDialog::Accepted) {
+                FuncItem *newFunc = dialog.getNewFunc();
+                if (newFunc) {
+                    int index = currentItem->getFuncs().indexOf(funcItem);
+                    if (index != -1) {
+                        currentItem->removeFunc(funcItem);
+                        currentItem->addFunc(newFunc);
+                        refreshIconList();
+                        saveConfig();
+                    }
                 }
             }
         }
@@ -226,8 +241,8 @@ void MainWindow::onDeleteItem()
 {
     if (!contextMenuItem || !currentItem) return;
 
-    void *data = contextMenuItem->data(Qt::UserRole).value<void*>();
-    if (!data) return;
+    int tag = contextMenuItem->data(Qt::UserRole + 1).toInt();
+    if (tag == TagNull) return;
 
     QString itemName = contextMenuItem->text();
 
@@ -237,25 +252,28 @@ void MainWindow::onDeleteItem()
                                  QMessageBox::Yes | QMessageBox::No);
 
     if (reply == QMessageBox::Yes) {
-        AppItem *appItem = reinterpret_cast<AppItem*>(data);
-        FuncItem *funcItem = reinterpret_cast<FuncItem*>(data);
-
-        if (appItem && currentItem->getSubApps().contains(appItem)) {
-            currentItem->removeSubApp(appItem);
-            refreshIconList();
-            saveConfig();
+        if (tag == TagAppItem) {
+            auto *appItem = static_cast<AppItem*>(contextMenuItem->data(Qt::UserRole).value<QObject*>());
+            if (currentItem->getSubApps().contains(appItem)) {
+                currentItem->removeSubApp(appItem);
+                refreshIconList();
+                saveConfig();
+            }
         }
-        else if (funcItem && currentItem->getFuncs().contains(funcItem)) {
-            currentItem->removeFunc(funcItem);
-            refreshIconList();
-            saveConfig();
+        else if (tag == TagFuncItem) {
+            auto *funcItem = static_cast<FuncItem*>(contextMenuItem->data(Qt::UserRole).value<QObject*>());
+            if (currentItem->getFuncs().contains(funcItem)) {
+                currentItem->removeFunc(funcItem);
+                refreshIconList();
+                saveConfig();
+            }
         }
     }
 }
 
 void MainWindow::loadConfig()
 {
-    QFile configFile(CONFIG_FILE_PATH);
+    QFile configFile(AppConfig::CONFIG_FILE_PATH);
     if (configFile.exists() && configFile.open(QIODevice::ReadOnly)) {
         QByteArray data = configFile.readAll();
         configFile.close();
@@ -279,7 +297,7 @@ void MainWindow::saveConfig()
     QJsonObject rootObj = rootItem->toJson();
     QJsonDocument doc(rootObj);
 
-    QFile configFile(CONFIG_FILE_PATH);
+    QFile configFile(AppConfig::CONFIG_FILE_PATH);
     if (configFile.open(QIODevice::WriteOnly)) {
         configFile.write(doc.toJson());
         configFile.close();
@@ -298,7 +316,8 @@ void MainWindow::refreshIconList()
         QListWidgetItem *item = new QListWidgetItem();
         item->setText(app->getName());
         item->setIcon(app->getIcon());
-        item->setData(Qt::UserRole, QVariant::fromValue<void*>(static_cast<void*>(app)));
+        item->setData(Qt::UserRole, QVariant::fromValue<QObject*>(app));
+        item->setData(Qt::UserRole + 1, TagAppItem);
         ui->iconListWidget->addItem(item);
     }
 
@@ -306,14 +325,16 @@ void MainWindow::refreshIconList()
         QListWidgetItem *item = new QListWidgetItem();
         item->setText(func->getName());
         item->setIcon(func->getIcon());
-        item->setData(Qt::UserRole, QVariant::fromValue<void*>(static_cast<void*>(func)));
+        item->setData(Qt::UserRole, QVariant::fromValue<QObject*>(func));
+        item->setData(Qt::UserRole + 1, TagFuncItem);
         ui->iconListWidget->addItem(item);
     }
 
     QListWidgetItem *addItem = new QListWidgetItem();
     addItem->setText(tr("+ Add"));
     addItem->setIcon(IconGenerator::generateIcon("+", Qt::lightGray, Qt::white, 64));
-    addItem->setData(Qt::UserRole, QVariant::fromValue<void*>(nullptr));
+    addItem->setData(Qt::UserRole, QVariant::fromValue<QObject*>(nullptr));
+    addItem->setData(Qt::UserRole + 1, TagNull);
     ui->iconListWidget->addItem(addItem);
 }
 
@@ -321,9 +342,9 @@ void MainWindow::onIconListItemClicked(QListWidgetItem *item)
 {
     if (!item) return;
 
-    void *data = item->data(Qt::UserRole).value<void*>();
+    int tag = item->data(Qt::UserRole + 1).toInt();
 
-    if (!data) {
+    if (tag == TagNull) {
         QMessageBox msgBox(this);
         msgBox.setWindowTitle(tr("Select Type"));
         msgBox.setText(tr("Please select the type to add:"));
@@ -342,19 +363,27 @@ void MainWindow::onIconListItemClicked(QListWidgetItem *item)
         }
         return;
     }
-
-    AppItem *appItem = reinterpret_cast<AppItem*>(data);
-    FuncItem *funcItem = reinterpret_cast<FuncItem*>(data);
-
-    if (appItem && currentItem->getSubApps().contains(appItem)) {
-        MainWindow *newWindow = new MainWindow(appItem, this);
-        newWindow->setAttribute(Qt::WA_DeleteOnClose);
-        newWindow->show();
-        this->hide();
+    else if (tag == TagAppItem) {
+        auto *appItem = static_cast<AppItem*>(item->data(Qt::UserRole).value<QObject*>());
+        if (currentItem->getSubApps().contains(appItem)) {
+            MainWindow *newWindow = new MainWindow(appItem, this);
+            newWindow->setAttribute(Qt::WA_DeleteOnClose);
+            newWindow->show();
+            this->hide();
+        }
     }
-    else if (funcItem && currentItem->getFuncs().contains(funcItem)) {
+    else if (tag == TagFuncItem) {
+        auto *funcItem = static_cast<FuncItem*>(item->data(Qt::UserRole).value<QObject*>());
         for (const QString &cmd : funcItem->getCmds()) {
-            QProcess::startDetached(cmd);
+            QStringList parts = QProcess::splitCommand(cmd);
+            if (!parts.isEmpty()) {
+                QString program = parts.first();
+                QStringList args = parts.mid(1);
+                if (!QProcess::startDetached(program, args)) {
+                    QMessageBox::warning(this, tr("Launch Error"),
+                        tr("Failed to launch: %1").arg(program));
+                }
+            }
         }
     }
 }
@@ -387,7 +416,7 @@ void MainWindow::onAddFuncClicked()
 
 void MainWindow::onOpenConfig()
 {
-    QString configPath = QDir::current().absoluteFilePath(CONFIG_FILE_PATH);
+    QString configPath = QDir::current().absoluteFilePath(AppConfig::CONFIG_FILE_PATH);
     QFileInfo fileInfo(configPath);
 
     if (fileInfo.exists()) {

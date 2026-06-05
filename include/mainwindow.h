@@ -57,7 +57,6 @@ private:
     IconListDelegate *delegate;
     AppItem *currentItem;
     AppItem *rootItem;
-    const QString CONFIG_FILE_PATH = "./config.json";
     QTranslator *currentTranslator = nullptr;
 
     QMenu *contextMenu;

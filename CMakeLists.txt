@@ -124,23 +124,18 @@ message(STATUS "Found ${UI_FILES_COUNT} UI files")
 message(STATUS "Found ${RESOURCE_FILES_COUNT} resource files")
 
 #=============================================================================
-# 目标创建
+# 对象库 (用于主程序和测试共享)
 #=============================================================================
 
-# 创建可执行文件目标
-add_executable(${PROJECT_NAME}
+add_library(${PROJECT_NAME}_objs OBJECT
     ${SOURCES}
     ${HEADERS}
     ${UI_FILES}
     ${RESOURCE_FILES}
 )
 
-#=============================================================================
-# 目标属性配置
-#=============================================================================
-
 # 包含目录
-target_include_directories(${PROJECT_NAME} 
+target_include_directories(${PROJECT_NAME}_objs 
     PRIVATE 
         ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -148,15 +143,32 @@ target_include_directories(${PROJECT_NAME}
 )
 
 # 链接库
-target_link_libraries(${PROJECT_NAME} 
+target_link_libraries(${PROJECT_NAME}_objs 
     PRIVATE 
         Qt${QT_VERSION_MAJOR}::Widgets
 )
 
 # 编译定义
 if(ENABLE_DEBUG)
-    target_compile_definitions(${PROJECT_NAME} PRIVATE ENABLE_DEBUG=1)
+    target_compile_definitions(${PROJECT_NAME}_objs PRIVATE ENABLE_DEBUG=1)
 endif()
+
+#=============================================================================
+# 目标创建
+#=============================================================================
+
+# 创建可执行文件目标
+add_executable(${PROJECT_NAME} $<TARGET_OBJECTS:${PROJECT_NAME}_objs>)
+
+# 链接库
+target_link_libraries(${PROJECT_NAME} 
+    PRIVATE 
+        Qt${QT_VERSION_MAJOR}::Widgets
+)
+
+#=============================================================================
+# 目标属性配置
+#=============================================================================
 
 # 平台特定设置
 if(WIN32)
@@ -246,17 +258,16 @@ if(BUILD_TESTS)
     )
     
     if(TEST_SOURCES)
-        add_executable(${PROJECT_NAME}_tests ${TEST_SOURCES})
-        target_link_libraries(${PROJECT_NAME}_tests PRIVATE ${PROJECT_NAME})
+        add_executable(${PROJECT_NAME}_tests ${TEST_SOURCES} $<TARGET_OBJECTS:${PROJECT_NAME}_objs>)
+        target_link_libraries(${PROJECT_NAME}_tests PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
+        target_include_directories(${PROJECT_NAME}_tests PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/include
+            ${CMAKE_CURRENT_SOURCE_DIR}/src
+            ${CMAKE_CURRENT_BINARY_DIR}
+        )
         add_test(NAME ${PROJECT_NAME}_tests COMMAND ${PROJECT_NAME}_tests)
     endif()
 endif()
-
-#=============================================================================
-# 生成配置文件
-#=============================================================================
-
-target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 
 #=============================================================================
 # 总结信息

@@ -140,7 +140,8 @@ void FuncConfigDialog::onDelCmdClicked()
 {
     QListWidgetItem *currentItem = ui->cmdListWidget->currentItem();
     if (currentItem) {
-        delete currentItem;
+        QListWidgetItem *item = ui->cmdListWidget->takeItem(ui->cmdListWidget->row(currentItem));
+        delete item;
     }
 }
 

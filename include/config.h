@@ -4,19 +4,19 @@
 #include <QString>
 
 namespace AppConfig {
-    const QString APP_NAME = "QuickStart";
-    const QString APP_DISPLAY_NAME = "QuickStart";
-    const QString APP_VERSION = "2.0.0";
-    const QString APP_BUILD_DATE = __DATE__;
-    const QString APP_BUILD_TIME = __TIME__;
+    inline const QString APP_NAME = "QuickStart";
+    inline const QString APP_DISPLAY_NAME = "QuickStart";
+    inline const QString APP_VERSION = "2.0.0";
+    inline const QString APP_BUILD_DATE = __DATE__;
+    inline const QString APP_BUILD_TIME = __TIME__;
 
-    const QString APP_AUTHOR = "Jianyin";
-    const QString APP_COPYRIGHT = "Copyright (C) 2024 All Rights Reserved.";
-    const QString APP_DESCRIPTION = "A simple app launcher tool";
+    inline const QString APP_AUTHOR = "Jianyin";
+    inline const QString APP_COPYRIGHT = "Copyright (C) 2024 All Rights Reserved.";
+    inline const QString APP_DESCRIPTION = "A simple app launcher tool";
 
-    const QString CONFIG_FILE_PATH = "./config.json";
+    inline const QString CONFIG_FILE_PATH = "./config.json";
 
-    const QString APP_ICON_PATH = ":/app_icon.ico";
+    inline const QString APP_ICON_PATH = ":/resources/app_icon.ico";
 
     inline QString aboutHtml() {
         return QString(

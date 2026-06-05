@@ -41,11 +41,12 @@ void IconListDelegate::paint(QPainter *painter, const QStyleOptionViewItem &opti
         int iconY = cardRect.top() + ICON_Y_OFFSET;
         QPixmap pixmap = icon.pixmap(ICON_SIZE, ICON_SIZE);
 
+        painter->save();
         QPainterPath clipPath;
         clipPath.addEllipse(iconX, iconY, ICON_SIZE, ICON_SIZE);
         painter->setClipPath(clipPath);
         painter->drawPixmap(iconX, iconY, ICON_SIZE, ICON_SIZE, pixmap);
-        painter->setClipping(false);
+        painter->restore();
     }
 
     QString text = index.data(Qt::DisplayRole).toString();

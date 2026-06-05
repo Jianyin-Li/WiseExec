@@ -92,6 +92,12 @@ void AppItem::fromJson(const QJsonObject &obj)
     name = obj["name"].toString();
     iconPath = obj["iconPath"].toString();
 
+    for (AppItem *app : subApps) {
+        app->deleteLater();
+    }
+    for (FuncItem *func : funcs) {
+        func->deleteLater();
+    }
     subApps.clear();
     funcs.clear();
 

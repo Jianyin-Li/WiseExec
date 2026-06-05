@@ -82,7 +82,7 @@ QPixmap IconGenerator::drawCircularIcon(const QString &text, const QColor &backg
     }
 
     QFont font;
-    font.setPointSize(fontSize);
+    font.setPixelSize(fontSize);
     font.setBold(true);
     painter.setFont(font);
 
@@ -118,7 +118,7 @@ QPixmap IconGenerator::drawSquareIcon(const QString &text, const QColor &backgro
     }
     
     QFont font;
-    font.setPointSize(fontSize);
+    font.setPixelSize(fontSize);
     font.setBold(true);
     painter.setFont(font);
 
