@@ -8,6 +8,7 @@
 #include <QTranslator>
 #include <QComboBox>
 #include <QLabel>
+#include <QToolButton>
 #include "appitem.h"
 #include "appconfigdialog.h"
 #include "funcconfigdialog.h"
@@ -45,6 +46,7 @@ private slots:
     void onAboutQt();
     void onLanguageChanged(int index);
     void onToggleDarkMode(bool checked);
+    void onBackClicked();
 
 private:
     void refreshIconList();
@@ -53,6 +55,7 @@ private:
     void setupContextMenu();
     void setupLanguageToggle();
     void retranslateLanguageToggle();
+    void setupHeaderBar();
 
     Ui::MainWindow *ui;
     IconListDelegate *delegate;
@@ -75,6 +78,9 @@ private:
 
     QLabel *languageLabel = nullptr;
     QComboBox *languageCombo = nullptr;
+    QWidget *m_headerWidget = nullptr;
+    QToolButton *m_backBtn = nullptr;
+    QLabel *m_titleLabel = nullptr;
     QString m_savedLanguage;
     bool m_darkMode = false;
     QString m_lightStyleSheet;

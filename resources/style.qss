@@ -1,16 +1,16 @@
 /* ============================================================
-   QuickStart - Modern Material Design Stylesheet
+   QuickStart - Modern Home Assistant Inspired Stylesheet
    ============================================================ */
 
 /* Global defaults */
 QWidget {
     font-family: "Segoe UI", "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif;
     font-size: 13px;
-    color: #2c3e50;
+    color: #202124;
 }
 
 QMainWindow {
-    background-color: #f0f2f5;
+    background-color: #f1f3f4;
 }
 
 QDialog {
@@ -51,14 +51,14 @@ QMenu {
     background-color: #ffffff;
     border: 1px solid #e0e0e0;
     border-radius: 8px;
-    padding: 4px 0px;
+    padding: 6px 0px;
     margin: 2px;
 }
 
 QMenu::item {
     padding: 8px 32px 8px 16px;
-    margin: 2px 4px;
-    border-radius: 4px;
+    margin: 2px 6px;
+    border-radius: 6px;
 }
 
 QMenu::item:selected {
@@ -87,7 +87,7 @@ QListWidget {
     background-color: transparent;
     border: none;
     outline: none;
-    padding: 8px;
+    padding: 12px;
 }
 
 QListWidget::item {
@@ -101,14 +101,14 @@ QListWidget::item {
 QListWidget#cmdListWidget {
     background-color: #fafafa;
     border: 1px solid #e0e0e0;
-    border-radius: 6px;
-    padding: 2px;
+    border-radius: 8px;
+    padding: 4px;
     outline: none;
 }
 
 QListWidget#cmdListWidget::item {
-    padding: 6px 10px;
-    border-radius: 4px;
+    padding: 8px 12px;
+    border-radius: 6px;
     margin: 1px 0px;
 }
 
@@ -129,11 +129,11 @@ QPushButton {
     background-color: #1a73e8;
     color: #ffffff;
     border: none;
-    border-radius: 6px;
-    padding: 8px 20px;
+    border-radius: 8px;
+    padding: 8px 22px;
     font-size: 13px;
     font-weight: 500;
-    min-height: 20px;
+    min-height: 22px;
 }
 
 QPushButton:hover {
@@ -210,8 +210,8 @@ QPushButton#addCmdBtn {
    ============================================================ */
 QLineEdit {
     border: 1.5px solid #dadce0;
-    border-radius: 6px;
-    padding: 8px 12px;
+    border-radius: 8px;
+    padding: 10px 14px;
     font-size: 13px;
     background-color: #ffffff;
     selection-background-color: #d2e3fc;
@@ -234,15 +234,15 @@ QGroupBox {
     font-weight: 600;
     color: #5f6368;
     border: 1.5px solid #e0e0e0;
-    border-radius: 8px;
-    margin-top: 12px;
-    padding: 16px 12px 12px 12px;
+    border-radius: 10px;
+    margin-top: 14px;
+    padding: 18px 14px 14px 14px;
 }
 
 QGroupBox::title {
     subcontrol-origin: margin;
     subcontrol-position: top left;
-    padding: 2px 10px;
+    padding: 2px 12px;
     background-color: #ffffff;
     color: #1a73e8;
 }
@@ -259,14 +259,14 @@ QLabel {
    Scroll Bars
    ============================================================ */
 QScrollBar:vertical {
-    width: 6px;
+    width: 8px;
     background: transparent;
     margin: 0px;
 }
 
 QScrollBar::handle:vertical {
     background: #c4c4c4;
-    border-radius: 3px;
+    border-radius: 4px;
     min-height: 30px;
 }
 
@@ -285,14 +285,14 @@ QScrollBar::sub-page:vertical {
 }
 
 QScrollBar:horizontal {
-    height: 6px;
+    height: 8px;
     background: transparent;
     margin: 0px;
 }
 
 QScrollBar::handle:horizontal {
     background: #c4c4c4;
-    border-radius: 3px;
+    border-radius: 4px;
     min-width: 30px;
 }
 
@@ -320,15 +320,19 @@ QStatusBar {
     font-size: 12px;
 }
 
+QStatusBar::item {
+    border: none;
+}
+
 /* ============================================================
    Tool Tip
    ============================================================ */
 QToolTip {
-    background-color: #424242;
+    background-color: #323232;
     color: #ffffff;
     border: none;
-    border-radius: 4px;
-    padding: 6px 10px;
+    border-radius: 6px;
+    padding: 8px 12px;
     font-size: 12px;
 }
 
@@ -340,9 +344,57 @@ QMessageBox {
 }
 
 QMessageBox QLabel {
-    color: #2c3e50;
+    color: #202124;
     font-size: 13px;
     min-width: 200px;
+}
+
+QMessageBox QPushButton {
+    min-width: 80px;
+}
+
+/* ============================================================
+   Combo Box
+   ============================================================ */
+QComboBox {
+    background-color: #ffffff;
+    color: #202124;
+    border: 1.5px solid #dadce0;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 13px;
+    min-width: 100px;
+}
+
+QComboBox:focus {
+    border-color: #1a73e8;
+}
+
+QComboBox::drop-down {
+    border: none;
+    width: 30px;
+}
+
+QComboBox::down-arrow {
+    width: 10px;
+    height: 10px;
+}
+
+QComboBox QAbstractItemView {
+    background-color: #ffffff;
+    color: #202124;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 4px;
+    selection-background-color: #e8f0fe;
+    selection-color: #1a73e8;
+    outline: none;
+}
+
+QComboBox QAbstractItemView::item {
+    padding: 6px 12px;
+    border-radius: 4px;
+    margin: 1px 2px;
 }
 
 /* ============================================================

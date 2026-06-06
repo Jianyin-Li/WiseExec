@@ -3,17 +3,22 @@
 #include <QPainterPath>
 #include <QApplication>
 
-static const int CARD_WIDTH = 110;
-static const int CARD_HEIGHT = 120;
-static const int CARD_RADIUS = 12;
+static const int CARD_WIDTH = 120;
+static const int CARD_HEIGHT = 140;
+static const int CARD_RADIUS = 14;
 static const int ICON_SIZE = 56;
-static const int ICON_Y_OFFSET = 12;
-static const int TEXT_Y_OFFSET = 76;
-static const int TEXT_HEIGHT = 36;
+static const int ICON_Y_OFFSET = 14;
+static const int TEXT_Y_OFFSET = 80;
+static const int TEXT_HEIGHT = 42;
 
 IconListDelegate::IconListDelegate(QObject *parent)
     : QStyledItemDelegate(parent)
 {
+}
+
+void IconListDelegate::setDarkMode(bool dark)
+{
+    m_darkMode = dark;
 }
 
 QSize IconListDelegate::sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const
@@ -31,7 +36,7 @@ void IconListDelegate::paint(QPainter *painter, const QStyleOptionViewItem &opti
     bool hovered = option.state & QStyle::State_MouseOver;
     bool selected = option.state & QStyle::State_Selected;
 
-    QRect cardRect = option.rect.adjusted(4, 4, -4, -4);
+    QRect cardRect = option.rect.adjusted(5, 5, -5, -5);
 
     drawCardBackground(painter, cardRect, hovered, selected);
 
@@ -43,27 +48,32 @@ void IconListDelegate::paint(QPainter *painter, const QStyleOptionViewItem &opti
 
         painter->save();
         QPainterPath clipPath;
-        clipPath.addEllipse(iconX, iconY, ICON_SIZE, ICON_SIZE);
+        clipPath.addEllipse(iconX + 1, iconY + 1, ICON_SIZE - 2, ICON_SIZE - 2);
         painter->setClipPath(clipPath);
-        painter->drawPixmap(iconX, iconY, ICON_SIZE, ICON_SIZE, pixmap);
+        painter->drawPixmap(iconX + 1, iconY + 1, ICON_SIZE - 2, ICON_SIZE - 2, pixmap);
         painter->restore();
     }
 
     QString text = index.data(Qt::DisplayRole).toString();
     if (!text.isEmpty()) {
         QRect textRect(
-            cardRect.left() + 4,
+            cardRect.left() + 6,
             cardRect.top() + TEXT_Y_OFFSET,
-            cardRect.width() - 8,
+            cardRect.width() - 12,
             TEXT_HEIGHT
         );
 
         QFont font = painter->font();
-        font.setPointSize(8);
+        font.setPixelSize(11);
         font.setBold(false);
         painter->setFont(font);
 
-        QColor textColor = selected ? QColor("#1a73e8") : QColor("#3c4043");
+        QColor textColor;
+        if (m_darkMode) {
+            textColor = selected ? QColor("#8ab4f8") : QColor("#e8eaed");
+        } else {
+            textColor = selected ? QColor("#1a73e8") : QColor("#3c4043");
+        }
         painter->setPen(textColor);
 
         painter->drawText(textRect, Qt::AlignCenter | Qt::TextWordWrap, text);
@@ -72,36 +82,47 @@ void IconListDelegate::paint(QPainter *painter, const QStyleOptionViewItem &opti
 
 void IconListDelegate::drawCardBackground(QPainter *painter, const QRect &rect, bool hovered, bool selected) const
 {
-    QColor bgColor = selected ? QColor("#e8f0fe") : QColor("#ffffff");
-    QColor borderColor;
+    QColor bgColor, borderColor;
     qreal borderWidth;
+    int shadowOffset = hovered ? 4 : 2;
 
-    if (selected) {
-        borderColor = QColor("#1a73e8");
-        borderWidth = 1.5;
-    } else if (hovered) {
-        borderColor = QColor("#dadce0");
-        borderWidth = 1.0;
+    if (m_darkMode) {
+        bgColor = selected ? QColor("#2d3a4a") : QColor("#2d2d2d");
+        borderColor = selected ? QColor("#8ab4f8") : (hovered ? QColor("#3c4043") : QColor("#333333"));
+        borderWidth = selected ? 1.5 : (hovered ? 1.0 : 0.0);
     } else {
-        borderColor = QColor("#f0f0f0");
-        borderWidth = 0.0;
+        bgColor = selected ? QColor("#e8f0fe") : QColor("#ffffff");
+        borderColor = selected ? QColor("#1a73e8") : (hovered ? QColor("#dadce0") : QColor("#f0f0f0"));
+        borderWidth = selected ? 1.5 : (hovered ? 1.0 : 0.0);
     }
 
     if (hovered && !selected) {
-        bgColor = QColor("#f8f9fa");
+        bgColor = m_darkMode ? QColor("#333333") : QColor("#f8f9fa");
     }
 
-    if (borderWidth > 0) {
+    QColor shadowColor = m_darkMode ? QColor(0, 0, 0, 60) : QColor(0, 0, 0, 20);
+    if (hovered) {
+        shadowColor = m_darkMode ? QColor(0, 0, 0, 80) : QColor(0, 0, 0, 35);
+    }
+
+    for (int i = 0; i < 3; ++i) {
         QPainterPath shadowPath;
-        shadowPath.addRoundedRect(rect.adjusted(0, 2, 0, 0), CARD_RADIUS, CARD_RADIUS);
+        int blur = i * 2;
+        shadowPath.addRoundedRect(rect.adjusted(-blur, shadowOffset + blur, blur, blur), CARD_RADIUS, CARD_RADIUS);
         painter->setPen(Qt::NoPen);
-        painter->setBrush(QColor(0, 0, 0, 15));
+        QColor blurColor = shadowColor;
+        blurColor.setAlpha(shadowColor.alpha() / (i + 2));
+        painter->setBrush(blurColor);
         painter->drawPath(shadowPath);
     }
 
     QPainterPath cardPath;
     cardPath.addRoundedRect(rect, CARD_RADIUS, CARD_RADIUS);
-    painter->setPen(QPen(borderColor, borderWidth));
+    if (borderWidth > 0) {
+        painter->setPen(QPen(borderColor, borderWidth));
+    } else {
+        painter->setPen(Qt::NoPen);
+    }
     painter->setBrush(bgColor);
     painter->drawPath(cardPath);
 }

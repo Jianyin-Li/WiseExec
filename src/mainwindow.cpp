@@ -17,41 +17,53 @@
 #include <QFileInfo>
 #include <QLocale>
 #include <QHBoxLayout>
+#include <QVBoxLayout>
+#include <QLabel>
+#include <QToolButton>
 #include <yaml-cpp/yaml.h>
 
 namespace {
 enum ItemTag { TagNull = 0, TagAppItem = 1, TagFuncItem = 2 };
 
 const QString DARK_OVERLAYS = QStringLiteral(
-    "QMainWindow, QDialog, QWidget { background-color: #1e1e1e; color: #e0e0e0; }"
-    "QDialog { background-color: #2d2d2d; }"
-    "QMenuBar { background-color: #1565c0; }"
-    "QMenu { background-color: #2d2d2d; border: 1px solid #444444; }"
+    "QMainWindow, QDialog, QWidget { background-color: #1a1a2e; color: #e0e0e0; }"
+    "QDialog { background-color: #1e1e36; }"
+    "QMenuBar { background-color: #0d47a1; }"
+    "QMenu { background-color: #1e1e36; border: 1px solid #2a2a4a; }"
     "QMenu::item { color: #e0e0e0; }"
     "QMenu::item:selected { background-color: #1a73e8; color: #ffffff; }"
-    "QMenu::separator { background-color: #444444; }"
-    "QListWidget#cmdListWidget { background-color: #252525; border: 1px solid #444444; color: #e0e0e0; }"
+    "QMenu::separator { background-color: #2a2a4a; }"
+    "QListWidget#cmdListWidget { background-color: #1a1a2e; border: 1px solid #2a2a4a; color: #e0e0e0; }"
     "QListWidget#cmdListWidget::item { color: #e0e0e0; }"
     "QListWidget#cmdListWidget::item:hover { background-color: #1a3a6a; }"
-    "QListWidget#cmdListWidget::item:selected { background-color: #1a3a6a; color: #90caf9; }"
+    "QListWidget#cmdListWidget::item:selected { background-color: #1a3a6a; color: #8ab4f8; }"
     "QPushButton { background-color: #1565c0; }"
     "QPushButton:hover { background-color: #1976d2; }"
-    "QPushButton#cancelBtn { background-color: #424242; color: #e0e0e0; border: 1px solid #555555; }"
-    "QPushButton#cancelBtn:hover { background-color: #505050; }"
-    "QPushButton#selectIconBtn { background-color: #333333; color: #90caf9; border: 1px solid #555555; }"
+    "QPushButton#cancelBtn { background-color: #2a2a4a; color: #e0e0e0; border: 1px solid #3a3a5a; }"
+    "QPushButton#cancelBtn:hover { background-color: #3a3a5a; }"
+    "QPushButton#selectIconBtn { background-color: #2a2a4a; color: #8ab4f8; border: 1px solid #3a3a5a; }"
     "QPushButton#selectIconBtn:hover { background-color: #1a3a6a; }"
-    "QLineEdit { background-color: #333333; border: 1.5px solid #555555; color: #e0e0e0; }"
+    "QPushButton#delCmdBtn { background-color: #b71c1c; }"
+    "QPushButton#delCmdBtn:hover { background-color: #c62828; }"
+    "QPushButton#selectExeBtn { background-color: #1b5e20; }"
+    "QPushButton#selectExeBtn:hover { background-color: #2e7d32; }"
+    "QLineEdit { background-color: #1e1e36; border: 1.5px solid #2a2a4a; color: #e0e0e0; }"
     "QLineEdit:focus { border-color: #1565c0; }"
-    "QLineEdit:read-only { background-color: #2a2a2a; }"
-    "QGroupBox { color: #aaaaaa; border: 1.5px solid #444444; }"
-    "QGroupBox::title { background-color: #2d2d2d; color: #90caf9; }"
-    "QStatusBar { background-color: #252525; border-top: 1px solid #333333; color: #aaaaaa; }"
-    "QScrollBar::handle:vertical, QScrollBar::handle:horizontal { background: #555555; }"
-    "QScrollBar::handle:vertical:hover, QScrollBar::handle:horizontal:hover { background: #666666; }"
+    "QLineEdit:read-only { background-color: #16162a; }"
+    "QGroupBox { color: #aaaaaa; border: 1.5px solid #2a2a4a; }"
+    "QGroupBox::title { background-color: #1e1e36; color: #8ab4f8; }"
+    "QStatusBar { background-color: #16162a; border-top: 1px solid #2a2a4a; color: #9aa0a6; }"
+    "QScrollBar:vertical, QScrollBar:horizontal { background: #1a1a2e; }"
+    "QScrollBar::handle:vertical, QScrollBar::handle:horizontal { background: #3a3a5a; }"
+    "QScrollBar::handle:vertical:hover, QScrollBar::handle:horizontal:hover { background: #4a4a6a; }"
     "QLabel { color: #cccccc; }"
-    "QMessageBox { background-color: #2d2d2d; }"
+    "QMessageBox { background-color: #1e1e36; }"
     "QMessageBox QLabel { color: #e0e0e0; }"
-    "QComboBox QAbstractItemView { background-color: #2d2d2d; color: #e0e0e0; selection-background-color: #1a3a6a; selection-color: #90caf9; }"
+    "QMessageBox QPushButton { min-width: 80px; }"
+    "QComboBox { background-color: #1e1e36; color: #e0e0e0; border: 1.5px solid #2a2a4a; }"
+    "QComboBox:focus { border-color: #1565c0; }"
+    "QComboBox QAbstractItemView { background-color: #1e1e36; color: #e0e0e0; border: 1px solid #2a2a4a; selection-background-color: #1a3a6a; selection-color: #8ab4f8; outline: none; }"
+    "QComboBox QAbstractItemView::item { padding: 6px 12px; border-radius: 4px; margin: 1px 2px; }"
 );
 }
 
@@ -80,13 +92,13 @@ MainWindow::MainWindow(AppItem *initialItem, QWidget *parent)
     delegate = new IconListDelegate(this);
     ui->iconListWidget->setItemDelegate(delegate);
     ui->iconListWidget->setMouseTracking(true);
-    ui->iconListWidget->setGridSize(QSize(120, 130));
-    ui->iconListWidget->setIconSize(QSize(56, 56));
+    ui->iconListWidget->setGridSize(QSize(130, 150));
+    ui->iconListWidget->setIconSize(QSize(60, 60));
     ui->iconListWidget->setWordWrap(true);
     ui->iconListWidget->setResizeMode(QListView::Adjust);
     ui->iconListWidget->setMovement(QListView::Static);
     ui->iconListWidget->setViewMode(QListView::IconMode);
-    ui->iconListWidget->setSpacing(6);
+    ui->iconListWidget->setSpacing(8);
 
     actionOpen_config = ui->actionOpen_config;
     actionExit = ui->actionExit;
@@ -110,7 +122,17 @@ MainWindow::MainWindow(AppItem *initialItem, QWidget *parent)
         styleFile.close();
     }
 
-    loadConfig();
+    if (initialItem) {
+        MainWindow *parentWin = qobject_cast<MainWindow*>(parent);
+        if (parentWin) {
+            rootItem = parentWin->rootItem;
+            m_savedLanguage = parentWin->m_savedLanguage;
+            m_darkMode = parentWin->m_darkMode;
+            delegate->setDarkMode(m_darkMode);
+        }
+    } else {
+        loadConfig();
+    }
 
     if (!this->currentItem) {
         this->currentItem = rootItem;
@@ -128,6 +150,7 @@ MainWindow::MainWindow(AppItem *initialItem, QWidget *parent)
 
     connect(ui->iconListWidget, &QListWidget::itemClicked, this, &MainWindow::onIconListItemClicked);
 
+    setupHeaderBar();
     setupContextMenu();
     refreshIconList();
 }
@@ -163,6 +186,12 @@ void MainWindow::changeEvent(QEvent *event)
         QString name = currentItem->getName().isEmpty() ? tr("Home") : currentItem->getName();
         setWindowTitle(tr("App Launcher - %1").arg(name));
         ui->statusbar->showMessage(tr("Current: %1").arg(name));
+        if (m_titleLabel) {
+            m_titleLabel->setText(name);
+        }
+        if (m_backBtn) {
+            m_backBtn->setToolTip(tr("Back"));
+        }
     }
     QMainWindow::changeEvent(event);
 }
@@ -241,12 +270,149 @@ void MainWindow::onLanguageChanged(int index)
 void MainWindow::onToggleDarkMode(bool checked)
 {
     m_darkMode = checked;
+    delegate->setDarkMode(checked);
     if (checked) {
         qApp->setStyleSheet(m_lightStyleSheet + "\n" + DARK_OVERLAYS);
+        m_headerWidget->setStyleSheet(
+            "QWidget#headerBar {"
+            "  background-color: #0d47a1;"
+            "}"
+            "QToolButton {"
+            "  background: transparent;"
+            "  border: none;"
+            "  color: #e0e0e0;"
+            "  padding: 6px 12px;"
+            "  border-radius: 6px;"
+            "  font-size: 20px;"
+            "}"
+            "QToolButton:hover {"
+            "  background-color: rgba(255,255,255,0.15);"
+            "}"
+            "QLabel {"
+            "  color: #e0e0e0;"
+            "  font-size: 15px;"
+            "  font-weight: 500;"
+            "  padding: 0px;"
+            "}"
+        );
     } else {
         qApp->setStyleSheet(m_lightStyleSheet);
+        m_headerWidget->setStyleSheet(
+            "QWidget#headerBar {"
+            "  background-color: #1a73e8;"
+            "}"
+            "QToolButton {"
+            "  background: transparent;"
+            "  border: none;"
+            "  color: #ffffff;"
+            "  padding: 6px 12px;"
+            "  border-radius: 6px;"
+            "  font-size: 20px;"
+            "}"
+            "QToolButton:hover {"
+            "  background-color: rgba(255,255,255,0.15);"
+            "}"
+            "QLabel {"
+            "  color: #ffffff;"
+            "  font-size: 15px;"
+            "  font-weight: 500;"
+            "  padding: 0px;"
+            "}"
+        );
     }
+    refreshIconList();
     saveConfig();
+}
+
+void MainWindow::setupHeaderBar()
+{
+    m_headerWidget = new QWidget(this);
+    m_headerWidget->setObjectName("headerBar");
+    m_headerWidget->setFixedHeight(52);
+    if (m_darkMode) {
+        m_headerWidget->setStyleSheet(
+            "QWidget#headerBar {"
+            "  background-color: #0d47a1;"
+            "}"
+            "QToolButton {"
+            "  background: transparent;"
+            "  border: none;"
+            "  color: #e0e0e0;"
+            "  padding: 6px 12px;"
+            "  border-radius: 6px;"
+            "  font-size: 20px;"
+            "}"
+            "QToolButton:hover {"
+            "  background-color: rgba(255,255,255,0.15);"
+            "}"
+            "QLabel {"
+            "  color: #e0e0e0;"
+            "  font-size: 15px;"
+            "  font-weight: 500;"
+            "  padding: 0px;"
+            "}"
+        );
+    } else {
+        m_headerWidget->setStyleSheet(
+            "QWidget#headerBar {"
+            "  background-color: #1a73e8;"
+            "}"
+            "QToolButton {"
+            "  background: transparent;"
+            "  border: none;"
+            "  color: #ffffff;"
+            "  padding: 6px 12px;"
+            "  border-radius: 6px;"
+            "  font-size: 20px;"
+            "}"
+            "QToolButton:hover {"
+            "  background-color: rgba(255,255,255,0.15);"
+            "}"
+            "QLabel {"
+            "  color: #ffffff;"
+            "  font-size: 15px;"
+            "  font-weight: 500;"
+            "  padding: 0px;"
+            "}"
+        );
+    }
+
+    QHBoxLayout *headerLayout = new QHBoxLayout(m_headerWidget);
+    headerLayout->setContentsMargins(8, 4, 8, 4);
+    headerLayout->setSpacing(6);
+
+    m_backBtn = new QToolButton(this);
+    m_backBtn->setText(QStringLiteral("\u2190"));
+    m_backBtn->setToolTip(tr("Back"));
+    m_backBtn->setVisible(false);
+
+    m_titleLabel = new QLabel(this);
+    m_titleLabel->setContentsMargins(4, 0, 0, 0);
+
+    headerLayout->addWidget(m_backBtn);
+    headerLayout->addWidget(m_titleLabel, 1);
+
+    QVBoxLayout *centralLayout = qobject_cast<QVBoxLayout*>(ui->centralwidget->layout());
+    if (centralLayout) {
+        centralLayout->insertWidget(0, m_headerWidget);
+    }
+
+    connect(m_backBtn, &QToolButton::clicked, this, &MainWindow::onBackClicked);
+
+    m_backBtn->setVisible(parent() != nullptr);
+    QString title = currentItem ? currentItem->getName() : QString();
+    if (title.isEmpty()) title = tr("Home");
+    m_titleLabel->setText(title);
+}
+
+void MainWindow::onBackClicked()
+{
+    MainWindow *parentWin = qobject_cast<MainWindow*>(parent());
+    if (parentWin) {
+        parentWin->refreshIconList();
+        parentWin->show();
+    }
+    close();
 }
 
 void MainWindow::setupContextMenu()
@@ -458,7 +624,11 @@ void MainWindow::refreshIconList()
 
     QListWidgetItem *addItem = new QListWidgetItem();
     addItem->setText(tr("+ Add"));
-    addItem->setIcon(IconGenerator::generateIcon("+", Qt::lightGray, Qt::white, 64));
+    {
+        QColor addBg = m_darkMode ? QColor("#3a3a3a") : QColor("#e8eaed");
+        QColor addFg = m_darkMode ? QColor("#9aa0a6") : QColor("#5f6368");
+        addItem->setIcon(IconGenerator::generateIcon("+", addBg, addFg, 64));
+    }
     addItem->setData(Qt::UserRole, QVariant::fromValue<QObject*>(nullptr));
     addItem->setData(Qt::UserRole + 1, TagNull);
     ui->iconListWidget->addItem(addItem);
