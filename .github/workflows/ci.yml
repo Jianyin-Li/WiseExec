@@ -15,7 +15,7 @@ on:
 
 env:
   BUILD_TYPE: Release
-  PROJECT_NAME: QtAppLauncher
+  PROJECT_NAME: WiseExec
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
@@ -151,8 +151,8 @@ jobs:
         run: |
           cd build/linux
           mkdir -p package/bin
-          cp bin/QtAppLauncher package/bin/
-          tar czf QtAppLauncher-${{ env.BUILD_TYPE }}-Linux.tar.gz -C package .
+          cp bin/WiseExec package/bin/
+          tar czf WiseExec-${{ env.BUILD_TYPE }}-Linux.tar.gz -C package .
 
       - name: Upload artifacts
         if: success() || failure()
@@ -198,8 +198,8 @@ jobs:
         run: |
           cd build/linux-arm64
           mkdir -p package/bin
-          cp bin/QtAppLauncher package/bin/
-          tar czf QtAppLauncher-${{ env.BUILD_TYPE }}-Linux-ARM64.tar.gz -C package .
+          cp bin/WiseExec package/bin/
+          tar czf WiseExec-${{ env.BUILD_TYPE }}-Linux-ARM64.tar.gz -C package .
 
       - name: Upload artifacts
         if: success() || failure()

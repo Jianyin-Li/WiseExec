@@ -1,89 +1,96 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
-#include <QMainWindow>
-#include <QListWidgetItem>
-#include <QCloseEvent>
-#include <QEvent>
-#include <QTranslator>
-#include <QComboBox>
-#include <QLabel>
-#include <QToolButton>
+#include <wx/wx.h>
+#include <wx/frame.h>
+#include <wx/panel.h>
+#include <wx/menu.h>
+#include <wx/statusbr.h>
+#include <wx/choice.h>
+#include <wx/stattext.h>
+#include <memory>
+#include <vector>
 #include "appitem.h"
-#include "appconfigdialog.h"
-#include "funcconfigdialog.h"
-#include "config.h"
-#include "iconlistdelegate.h"
+#include "icongridpanel.h"
 
-QT_BEGIN_NAMESPACE
-namespace Ui {
-class MainWindow;
-}
-QT_END_NAMESPACE
-
-class MainWindow : public QMainWindow
+class MainWindow : public wxFrame
 {
-    Q_OBJECT
-
 public:
-    explicit MainWindow(AppItem *initialItem = nullptr, QWidget *parent = nullptr);
+    explicit MainWindow(AppItem* initialItem = nullptr, MainWindow* parentWin = nullptr);
     ~MainWindow();
 
-protected:
-    void closeEvent(QCloseEvent *event) override;
-    void changeEvent(QEvent *event) override;
-
-private slots:
-    void onIconListItemClicked(QListWidgetItem *item);
-    void onAddAppClicked();
-    void onAddFuncClicked();
-    void showContextMenu(const QPoint &pos);
-    void onEditItem();
-    void onDeleteItem();
-    void onOpenConfig();
-    void onExit();
-    void onAboutQuickStart();
-    void onAboutQt();
-    void onLanguageChanged(int index);
-    void onToggleDarkMode(bool checked);
-    void onBackClicked();
-
 private:
-    void refreshIconList();
-    void saveConfig();
-    void loadConfig();
-    void setupContextMenu();
-    void setupLanguageToggle();
-    void retranslateLanguageToggle();
-    void setupHeaderBar();
+    // Event handlers
+    void OnExit(wxCommandEvent& event);
+    void OnAboutQuickStart(wxCommandEvent& event);
+    void OnAbout(wxCommandEvent& event);
+    void OnAddApp(wxCommandEvent& event);
+    void OnAddFunc(wxCommandEvent& event);
+    void OnOpenConfig(wxCommandEvent& event);
+    void OnToggleDarkMode(wxCommandEvent& event);
+    void OnLanguageChanged(wxCommandEvent& event);
+    void OnBackClicked(wxCommandEvent& event);
+    void OnItemClicked(int index);
+    void OnItemRightClick(int index, wxPoint pos);
+    void OnClose(wxCloseEvent& event);
 
-    Ui::MainWindow *ui;
-    IconListDelegate *delegate;
-    AppItem *currentItem;
-    AppItem *rootItem;
-    QTranslator *currentTranslator = nullptr;
+    void RefreshIconList();
+    void SaveConfig();
+    void LoadConfig();
+    void SetupMenuBar();
+    void SetupHeaderBar(wxWindow* parent, wxBoxSizer* parentSizer);
+    void SetupContextMenu();
+    void UpdateHeaderStyle();
+    void UpdateBreadcrumb();
 
-    QMenu *contextMenu;
-    QAction *editAction;
-    QAction *deleteAction;
-    QListWidgetItem *contextMenuItem;
+    void EditItem(int index);
+    void DeleteItem(int index);
 
-    QAction *actionOpen_config;
-    QAction *actionExit;
-    QAction *actionQuickStart;
-    QAction *actionQt;
-    QAction *actionApp;
-    QAction *actionFunc;
-    QAction *actionToggleDarkMode;
+    // Data
+    IconGridPanel* m_gridPanel;
+    wxPanel* m_headerBar;
+    wxStaticText* m_titleLabel;
+    wxButton* m_backBtn;
+    wxChoice* m_langChoice;
+    wxStaticText* m_langLabel;
+    wxStatusBar* m_statusBar;
 
-    QLabel *languageLabel = nullptr;
-    QComboBox *languageCombo = nullptr;
-    QWidget *m_headerWidget = nullptr;
-    QToolButton *m_backBtn = nullptr;
-    QLabel *m_titleLabel = nullptr;
-    QString m_savedLanguage;
+    AppItem* m_currentItem;
+    AppItem* m_rootItem;
     bool m_darkMode = false;
-    QString m_lightStyleSheet;
+    wxString m_savedLanguage;
+
+    // Navigation
+    MainWindow* m_rootWindow;
+    std::shared_ptr<std::vector<MainWindow*>> m_navStack;
+    bool m_navigatingBack = false;
+
+    // Menu
+    wxMenu* m_fileMenu;
+    wxMenu* m_newMenu;
+    wxMenu* m_aboutMenu;
+    wxMenuBar* m_menuBar;
+
+    // Context menu
+    wxMenu* m_contextMenu;
+    int m_contextIndex = -1;
+
+    enum {
+        ID_EXIT = wxID_HIGHEST + 1,
+        ID_ABOUT_QS,
+        ID_ABOUT_WX,
+        ID_ADD_APP,
+        ID_ADD_FUNC,
+        ID_OPEN_CONFIG,
+        ID_TOGGLE_DARK,
+        ID_LANG_CHOICE,
+        ID_BACK,
+        ID_EDIT,
+        ID_DELETE
+    };
+
+    wxDECLARE_EVENT_TABLE();
 };
+
 #endif // MAINWINDOW_H
 

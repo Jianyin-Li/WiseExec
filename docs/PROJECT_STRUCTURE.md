@@ -90,7 +90,7 @@ QuickStart/
 
 3. **运行应用程序**:
    ```bash
-   ./build/bin/QtAppLauncher
+   ./build/bin/WiseExec
    ```
 
 ## 清理说明

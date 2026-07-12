@@ -1,51 +1,45 @@
 #ifndef APPITEM_H
 #define APPITEM_H
 
-#include <QObject>
-#include <QString>
-#include <QList>
-#include <QJsonObject>
-#include <QJsonArray>
-#include <QIcon>
+#include <wx/string.h>
+#include <wx/bitmap.h>
+#include <vector>
+#include <memory>
 #include <yaml-cpp/yaml.h>
-#include "funcitem.h"
 
-class AppItem : public QObject
+class FuncItem;
+
+class AppItem
 {
-    Q_OBJECT
-
 public:
-    explicit AppItem(QObject *parent = nullptr);
-    explicit AppItem(const QString &name, const QString &iconPath, QObject *parent = nullptr);
+    explicit AppItem();
+    explicit AppItem(const wxString& name, const wxString& iconPath);
     ~AppItem();
 
-    QString getName() const { return name; }
-    void setName(const QString &newName) { name = newName; }
-    
-    QString getIconPath() const { return iconPath; }
-    void setIconPath(const QString &newIconPath) { iconPath = newIconPath; }
-    
-    QIcon getIcon() const;
-    
-    const QList<AppItem*>& getSubApps() const { return subApps; }
-    const QList<FuncItem*>& getFuncs() const { return funcs; }
-    
-    void addSubApp(AppItem *app);
-    void addFunc(FuncItem *func);
-    void removeSubApp(AppItem *app);
-    void removeFunc(FuncItem *func);
-    
-    QJsonObject toJson() const;
-    void fromJson(const QJsonObject &obj);
+    wxString getName() const { return m_name; }
+    void setName(const wxString& name) { m_name = name; }
+
+    wxString getIconPath() const { return m_iconPath; }
+    void setIconPath(const wxString& path) { m_iconPath = path; }
+
+    wxBitmap getIcon(int size = 64) const;
+
+    const std::vector<std::shared_ptr<AppItem>>& getSubApps() const { return m_subApps; }
+    const std::vector<std::shared_ptr<FuncItem>>& getFuncs() const { return m_funcs; }
+
+    void addSubApp(std::shared_ptr<AppItem> app);
+    void addFunc(std::shared_ptr<FuncItem> func);
+    void removeSubApp(AppItem* app);
+    void removeFunc(FuncItem* func);
 
     YAML::Node toYaml() const;
-    void fromYaml(const YAML::Node &node);
+    void fromYaml(const YAML::Node& node);
 
 private:
-    QString name;
-    QString iconPath;
-    QList<AppItem*> subApps;
-    QList<FuncItem*> funcs;
+    wxString m_name;
+    wxString m_iconPath;
+    std::vector<std::shared_ptr<AppItem>> m_subApps;
+    std::vector<std::shared_ptr<FuncItem>> m_funcs;
 };
 
 #endif // APPITEM_H

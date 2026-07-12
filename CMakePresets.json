@@ -4,8 +4,8 @@
     {
       "name": "default",
       "displayName": "Default Configuration",
-      "description": "Default build using system compiler",
-      "generator": "MinGW Makefiles",
+      "description": "Default build using Ninja",
+      "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/default",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",

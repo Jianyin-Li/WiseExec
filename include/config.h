@@ -1,37 +1,28 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-#include <QString>
+#include <wx/string.h>
 
 namespace AppConfig {
-    inline const QString APP_NAME = "QuickStart";
-    inline const QString APP_DISPLAY_NAME = "QuickStart";
-    inline const QString APP_VERSION = "2.0.0";
-    inline const QString APP_BUILD_DATE = __DATE__;
-    inline const QString APP_BUILD_TIME = __TIME__;
+    inline const wxChar* APP_NAME = wxT("WiseExec");
+    inline const wxChar* APP_DISPLAY_NAME = wxT("WiseExec");
+    inline const wxChar* APP_VERSION = wxT("2.0.0");
+    inline const wxChar* APP_AUTHOR = wxT("Jianyin");
+    inline const wxChar* APP_COPYRIGHT = wxT("Copyright (C) 2024 All Rights Reserved.");
+    inline const wxChar* APP_DESCRIPTION = wxT("A simple app launcher tool");
 
-    inline const QString APP_AUTHOR = "Jianyin";
-    inline const QString APP_COPYRIGHT = "Copyright (C) 2024 All Rights Reserved.";
-    inline const QString APP_DESCRIPTION = "A simple app launcher tool";
+    inline const wxChar* CONFIG_FILE_PATH = wxT("./config.json");
+    inline const wxChar* CONFIG_FILE_PATH_YAML = wxT("./config.yaml");
 
-    inline const QString CONFIG_FILE_PATH = "./config.json";
-    inline const QString CONFIG_FILE_PATH_YAML = "./config.yaml";
+    inline const wxChar* APP_ICON_PATH = wxT("resources/app_icon.ico");
 
-    inline const QString APP_ICON_PATH = ":/resources/app_icon.ico";
-
-    inline QString aboutHtml() {
-        return QString(
-            "<h3>%1</h3>"
-            "<p>Version: %2</p>"
-            "<p>Build: %3 %4</p>"
-            "<p>%5</p>"
-            "<p>%6</p>")
-            .arg(APP_DISPLAY_NAME)
-            .arg(APP_VERSION)
-            .arg(APP_BUILD_DATE)
-            .arg(APP_BUILD_TIME)
-            .arg(APP_DESCRIPTION)
-            .arg(APP_COPYRIGHT);
+    inline wxString aboutHtml() {
+        wxString html;
+        html << wxT("<h3>") << APP_DISPLAY_NAME << wxT("</h3>");
+        html << wxT("<p>Version: ") << APP_VERSION << wxT("</p>");
+        html << wxT("<p>") << APP_DESCRIPTION << wxT("</p>");
+        html << wxT("<p>") << APP_COPYRIGHT << wxT("</p>");
+        return html;
     }
 }
 

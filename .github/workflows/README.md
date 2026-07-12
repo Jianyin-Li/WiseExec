@@ -1,8 +1,8 @@
-# CI/CD Pipeline for QtAppLauncher
+# CI/CD Pipeline for WiseExec
 
 ## 概述
 
-这个CI/CD流水线为QtAppLauncher项目提供自动化构建、测试和发布功能。它支持多个平台和编译器。
+这个CI/CD流水线为WiseExec项目提供自动化构建、测试和发布功能。它支持多个平台和编译器。
 
 ## 功能特性
 
@@ -69,7 +69,7 @@
 |--------|--------|------|
 | BUILD_TYPE | Release | 构建类型 |
 | QT_VERSION | 6.5.0 | Qt版本 |
-| PROJECT_NAME | QtAppLauncher | 项目名称 |
+| PROJECT_NAME | WiseExec | 项目名称 |
 
 ## 自定义配置
 

@@ -1,8 +1,8 @@
-# AGENTS.md - QtAppLauncher
+# AGENTS.md - WiseExec
 
 ## Building
 - `cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release` then `cmake --build build`
-- Output binary at `build/bin/QtAppLauncher`
+- Output binary at `build/bin/WiseExec`
 - Qt 6.8.2 is available on this machine (confirmed)
 - CI uses explicit cmake commands per platform (not presets directly); `CMakePresets.json` has per-platform presets as reference
 - Tests are opt-in: add `-DBUILD_TESTS=ON`; test sources in `test/`, `tests/`, or `src/*_test.cpp`

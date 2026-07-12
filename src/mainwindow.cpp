@@ -1,746 +1,602 @@
 #include "mainwindow.h"
-#include "../ui/ui_mainwindow.h"
+#include "appconfigdialog.h"
+#include "funcconfigdialog.h"
 #include "icongenerator.h"
+#include "config.h"
 
-#include <QMessageBox>
-#include <QProcess>
-#include <QFile>
-#include <QJsonDocument>
-#include <QJsonObject>
-#include <QDir>
-#include <QPushButton>
-#include <QMenu>
-#include <QAction>
-#include <QIcon>
-#include <QDesktopServices>
-#include <QUrl>
-#include <QFileInfo>
-#include <QLocale>
-#include <QHBoxLayout>
-#include <QVBoxLayout>
-#include <QLabel>
-#include <QToolButton>
+#include <wx/stdpaths.h>
+#include <wx/filename.h>
+#include <wx/filedlg.h>
+#include <wx/textdlg.h>
+#include <wx/process.h>
+#include <wx/mimetype.h>
+#include <wx/url.h>
+#include <wx/fs_arc.h>
+#include <algorithm>
 #include <yaml-cpp/yaml.h>
 
-namespace {
-enum ItemTag { TagNull = 0, TagAppItem = 1, TagFuncItem = 2 };
+wxBEGIN_EVENT_TABLE(MainWindow, wxFrame)
+    EVT_MENU(MainWindow::ID_EXIT, MainWindow::OnExit)
+    EVT_MENU(MainWindow::ID_ABOUT_QS, MainWindow::OnAboutQuickStart)
+    EVT_MENU(MainWindow::ID_ABOUT_WX, MainWindow::OnAbout)
+    EVT_MENU(MainWindow::ID_ADD_APP, MainWindow::OnAddApp)
+    EVT_MENU(MainWindow::ID_ADD_FUNC, MainWindow::OnAddFunc)
+    EVT_MENU(MainWindow::ID_OPEN_CONFIG, MainWindow::OnOpenConfig)
+    EVT_MENU(MainWindow::ID_TOGGLE_DARK, MainWindow::OnToggleDarkMode)
+    EVT_CHOICE(MainWindow::ID_LANG_CHOICE, MainWindow::OnLanguageChanged)
+    EVT_BUTTON(MainWindow::ID_BACK, MainWindow::OnBackClicked)
+    EVT_CLOSE(MainWindow::OnClose)
+wxEND_EVENT_TABLE()
 
-const QString DARK_OVERLAYS = QStringLiteral(
-    "QMainWindow, QDialog, QWidget { background-color: #1a1a2e; color: #e0e0e0; }"
-    "QDialog { background-color: #1e1e36; }"
-    "QMenuBar { background-color: #0d47a1; }"
-    "QMenu { background-color: #1e1e36; border: 1px solid #2a2a4a; }"
-    "QMenu::item { color: #e0e0e0; }"
-    "QMenu::item:selected { background-color: #1a73e8; color: #ffffff; }"
-    "QMenu::separator { background-color: #2a2a4a; }"
-    "QListWidget#cmdListWidget { background-color: #1a1a2e; border: 1px solid #2a2a4a; color: #e0e0e0; }"
-    "QListWidget#cmdListWidget::item { color: #e0e0e0; }"
-    "QListWidget#cmdListWidget::item:hover { background-color: #1a3a6a; }"
-    "QListWidget#cmdListWidget::item:selected { background-color: #1a3a6a; color: #8ab4f8; }"
-    "QPushButton { background-color: #1565c0; }"
-    "QPushButton:hover { background-color: #1976d2; }"
-    "QPushButton#cancelBtn { background-color: #2a2a4a; color: #e0e0e0; border: 1px solid #3a3a5a; }"
-    "QPushButton#cancelBtn:hover { background-color: #3a3a5a; }"
-    "QPushButton#selectIconBtn { background-color: #2a2a4a; color: #8ab4f8; border: 1px solid #3a3a5a; }"
-    "QPushButton#selectIconBtn:hover { background-color: #1a3a6a; }"
-    "QPushButton#delCmdBtn { background-color: #b71c1c; }"
-    "QPushButton#delCmdBtn:hover { background-color: #c62828; }"
-    "QPushButton#selectExeBtn { background-color: #1b5e20; }"
-    "QPushButton#selectExeBtn:hover { background-color: #2e7d32; }"
-    "QLineEdit { background-color: #1e1e36; border: 1.5px solid #2a2a4a; color: #e0e0e0; }"
-    "QLineEdit:focus { border-color: #1565c0; }"
-    "QLineEdit:read-only { background-color: #16162a; }"
-    "QGroupBox { color: #aaaaaa; border: 1.5px solid #2a2a4a; }"
-    "QGroupBox::title { background-color: #1e1e36; color: #8ab4f8; }"
-    "QStatusBar { background-color: #16162a; border-top: 1px solid #2a2a4a; color: #9aa0a6; }"
-    "QScrollBar:vertical, QScrollBar:horizontal { background: #1a1a2e; }"
-    "QScrollBar::handle:vertical, QScrollBar::handle:horizontal { background: #3a3a5a; }"
-    "QScrollBar::handle:vertical:hover, QScrollBar::handle:horizontal:hover { background: #4a4a6a; }"
-    "QLabel { color: #cccccc; }"
-    "QMessageBox { background-color: #1e1e36; }"
-    "QMessageBox QLabel { color: #e0e0e0; }"
-    "QMessageBox QPushButton { min-width: 80px; }"
-    "QComboBox { background-color: #1e1e36; color: #e0e0e0; border: 1.5px solid #2a2a4a; }"
-    "QComboBox:focus { border-color: #1565c0; }"
-    "QComboBox QAbstractItemView { background-color: #1e1e36; color: #e0e0e0; border: 1px solid #2a2a4a; selection-background-color: #1a3a6a; selection-color: #8ab4f8; outline: none; }"
-    "QComboBox QAbstractItemView::item { padding: 6px 12px; border-radius: 4px; margin: 1px 2px; }"
-);
-}
-
-MainWindow::MainWindow(AppItem *initialItem, QWidget *parent)
-    : QMainWindow(parent)
-    , ui(new Ui::MainWindow)
-    , delegate(nullptr)
-    , currentItem(initialItem)
-    , rootItem(nullptr)
-    , contextMenu(nullptr)
-    , editAction(nullptr)
-    , deleteAction(nullptr)
-    , contextMenuItem(nullptr)
-    , actionOpen_config(nullptr)
-    , actionExit(nullptr)
-    , actionQuickStart(nullptr)
-    , actionQt(nullptr)
-    , actionApp(nullptr)
-    , actionFunc(nullptr)
+MainWindow::MainWindow(AppItem* initialItem, MainWindow* parentWin)
+    : wxFrame(nullptr, wxID_ANY, wxT("WiseExec"), wxDefaultPosition, wxSize(800, 600))
+    , m_gridPanel(nullptr)
+    , m_headerBar(nullptr)
+    , m_titleLabel(nullptr)
+    , m_backBtn(nullptr)
+    , m_langChoice(nullptr)
+    , m_langLabel(nullptr)
+    , m_statusBar(nullptr)
+    , m_currentItem(nullptr)
+    , m_rootItem(nullptr)
+    , m_darkMode(false)
+    , m_rootWindow(nullptr)
+    , m_navigatingBack(false)
 {
-    ui->setupUi(this);
+    SetIcon(wxIcon(wxT("IDI_ICON1"), wxBITMAP_TYPE_ICO_RESOURCE));
 
-    setWindowIcon(QIcon(":/resources/app_icon.ico"));
-    setMinimumSize(640, 480);
-
-    delegate = new IconListDelegate(this);
-    ui->iconListWidget->setItemDelegate(delegate);
-    ui->iconListWidget->setMouseTracking(true);
-    ui->iconListWidget->setGridSize(QSize(130, 150));
-    ui->iconListWidget->setIconSize(QSize(60, 60));
-    ui->iconListWidget->setWordWrap(true);
-    ui->iconListWidget->setResizeMode(QListView::Adjust);
-    ui->iconListWidget->setMovement(QListView::Static);
-    ui->iconListWidget->setViewMode(QListView::IconMode);
-    ui->iconListWidget->setSpacing(8);
-
-    actionOpen_config = ui->actionOpen_config;
-    actionExit = ui->actionExit;
-    actionQuickStart = ui->actionQuickStart;
-    actionQt = ui->actionQt;
-    actionApp = ui->actionApp;
-    actionFunc = ui->actionFunc;
-    actionToggleDarkMode = ui->actionToggleDarkMode;
-
-    connect(actionOpen_config, &QAction::triggered, this, &MainWindow::onOpenConfig);
-    connect(actionExit, &QAction::triggered, this, &MainWindow::onExit);
-    connect(actionQuickStart, &QAction::triggered, this, &MainWindow::onAboutQuickStart);
-    connect(actionQt, &QAction::triggered, this, &MainWindow::onAboutQt);
-    connect(actionApp, &QAction::triggered, this, &MainWindow::onAddAppClicked);
-    connect(actionFunc, &QAction::triggered, this, &MainWindow::onAddFuncClicked);
-    connect(actionToggleDarkMode, &QAction::toggled, this, &MainWindow::onToggleDarkMode);
-
-    QFile styleFile(":/resources/style.qss");
-    if (styleFile.open(QIODevice::ReadOnly)) {
-        m_lightStyleSheet = QString::fromUtf8(styleFile.readAll());
-        styleFile.close();
-    }
-
-    if (initialItem) {
-        MainWindow *parentWin = qobject_cast<MainWindow*>(parent);
-        if (parentWin) {
-            rootItem = parentWin->rootItem;
-            m_savedLanguage = parentWin->m_savedLanguage;
-            m_darkMode = parentWin->m_darkMode;
-            delegate->setDarkMode(m_darkMode);
-        }
+    // Navigation
+    if (parentWin) {
+        m_rootWindow = parentWin->m_rootWindow ? parentWin->m_rootWindow : parentWin;
+        m_navStack = m_rootWindow->m_navStack;
+        m_rootItem = parentWin->m_rootItem;
+        m_savedLanguage = parentWin->m_savedLanguage;
+        m_darkMode = parentWin->m_darkMode;
     } else {
-        loadConfig();
+        m_rootWindow = nullptr;
+        m_navStack = std::make_shared<std::vector<MainWindow*>>();
+        LoadConfig();
     }
 
-    if (!this->currentItem) {
-        this->currentItem = rootItem;
-    }
+    m_currentItem = initialItem ? initialItem : m_rootItem;
 
-    setupLanguageToggle();
+    // Create main panel
+    wxPanel* mainPanel = new wxPanel(this);
+    wxBoxSizer* mainSizer = new wxBoxSizer(wxVERTICAL);
 
-    if (m_darkMode) {
-        actionToggleDarkMode->setChecked(true);
-    }
+    // Header bar
+    SetupHeaderBar(mainPanel, mainSizer);
 
-    QString name = this->currentItem->getName().isEmpty() ? tr("Home") : this->currentItem->getName();
-    setWindowTitle(tr("App Launcher - %1").arg(name));
-    ui->statusbar->showMessage(tr("Current: %1").arg(name));
+    // Icon grid
+    m_gridPanel = new IconGridPanel(mainPanel);
+    m_gridPanel->setDarkMode(m_darkMode);
+    m_gridPanel->onItemClicked = [this](int index) { OnItemClicked(index); };
+    m_gridPanel->onItemRightClick = [this](int idx, wxPoint pos) { OnItemRightClick(idx, pos); };
+    mainSizer->Add(m_gridPanel, 1, wxEXPAND);
 
-    connect(ui->iconListWidget, &QListWidget::itemClicked, this, &MainWindow::onIconListItemClicked);
+    mainPanel->SetSizer(mainSizer);
 
-    setupHeaderBar();
-    setupContextMenu();
-    refreshIconList();
+    // Frame-level sizer so mainPanel fills the frame
+    wxBoxSizer* frameSizer = new wxBoxSizer(wxVERTICAL);
+    frameSizer->Add(mainPanel, 1, wxEXPAND);
+    SetSizer(frameSizer);
+
+    SetMinSize(wxSize(640, 480));
+
+    // Menu bar
+    SetupMenuBar();
+
+    // Status bar
+    m_statusBar = CreateStatusBar(1);
+
+    // Context menu
+    SetupContextMenu();
+
+    // Update UI
+    RefreshIconList();
+    UpdateBreadcrumb();
+
+    Centre();
 }
 
 MainWindow::~MainWindow()
 {
-    if (currentTranslator) {
-        qApp->removeTranslator(currentTranslator);
+    // Remove from nav stack
+    if (m_navStack) {
+        m_navStack->erase(
+            std::remove(m_navStack->begin(), m_navStack->end(), this),
+            m_navStack->end());
     }
-    delete ui;
-    delete rootItem;
-    if (contextMenu) {
-        delete contextMenu;
+    // Only root deletes rootItem
+    if (!m_rootWindow && m_rootItem) {
+        delete m_rootItem;
     }
 }
 
-void MainWindow::closeEvent(QCloseEvent *event)
+void MainWindow::SetupMenuBar()
 {
-    saveConfig();
-    MainWindow *parentMain = qobject_cast<MainWindow*>(parent());
-    if (parentMain) {
-        parentMain->refreshIconList();
-        parentMain->show();
-    }
-    QMainWindow::closeEvent(event);
+    m_menuBar = new wxMenuBar();
+
+    // File menu
+    m_fileMenu = new wxMenu();
+    m_newMenu = new wxMenu();
+    m_newMenu->Append(ID_ADD_APP, _("App"));
+    m_newMenu->Append(ID_ADD_FUNC, _("Function"));
+    m_fileMenu->Append(wxID_ANY, _("New"), m_newMenu);
+    m_fileMenu->Append(ID_OPEN_CONFIG, _("Open config"));
+    m_fileMenu->AppendCheckItem(ID_TOGGLE_DARK, _("Dark Mode"));
+    m_fileMenu->AppendSeparator();
+    m_fileMenu->Append(ID_EXIT, _("Exit"));
+
+    m_menuBar->Append(m_fileMenu, _("Start"));
+
+    // About menu
+    m_aboutMenu = new wxMenu();
+    m_aboutMenu->Append(ID_ABOUT_QS, _("About WiseExec"));
+    m_aboutMenu->Append(ID_ABOUT_WX, _("About wxWidgets"));
+
+    m_menuBar->Append(m_aboutMenu, _("About"));
+
+    SetMenuBar(m_menuBar);
+
+    // Language selector as corner widget (via statusbar area - use a simple approach)
+    // We'll add language choice in the header bar instead
 }
 
-void MainWindow::changeEvent(QEvent *event)
+void MainWindow::SetupHeaderBar(wxWindow* parent, wxBoxSizer* parentSizer)
 {
-    if (event->type() == QEvent::LanguageChange && currentItem) {
-        ui->retranslateUi(this);
-        retranslateLanguageToggle();
-        QString name = currentItem->getName().isEmpty() ? tr("Home") : currentItem->getName();
-        setWindowTitle(tr("App Launcher - %1").arg(name));
-        ui->statusbar->showMessage(tr("Current: %1").arg(name));
-        if (m_titleLabel) {
-            m_titleLabel->setText(name);
+    m_headerBar = new wxPanel(parent);
+    m_headerBar->SetMinSize(wxSize(-1, 52));
+
+    wxBoxSizer* headerSizer = new wxBoxSizer(wxHORIZONTAL);
+
+    // Common font for header elements
+    wxFont headerFont(wxSize(0, 12), wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL);
+
+    // Back button
+    m_backBtn = new wxButton(m_headerBar, ID_BACK, wxT("\u2190"),
+                             wxDefaultPosition, wxSize(36, 36), wxBORDER_NONE | wxBU_EXACTFIT);
+    m_backBtn->SetFont(wxFont(16, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL));
+    m_backBtn->SetBackgroundColour(wxTransparentColour);
+    headerSizer->Add(m_backBtn, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, FromDIP(8));
+    headerSizer->Hide(m_backBtn); // Hidden initially, shown by UpdateBreadcrumb
+
+    // Title
+    m_titleLabel = new wxStaticText(m_headerBar, wxID_ANY, wxEmptyString);
+    m_titleLabel->SetFont(headerFont);
+    headerSizer->Add(m_titleLabel, 1, wxALIGN_CENTER_VERTICAL | wxLEFT | wxRIGHT, FromDIP(8));
+
+    // Language choice
+    m_langLabel = new wxStaticText(m_headerBar, wxID_ANY, _("Language:"));
+    m_langLabel->SetFont(headerFont);
+    m_langChoice = new wxChoice(m_headerBar, ID_LANG_CHOICE);
+    m_langChoice->SetFont(headerFont);
+    m_langChoice->Append(wxT("English"));
+    m_langChoice->Append(wxT("\x4E2D\x6587")); // 中文
+
+    wxString lang = m_savedLanguage.IsEmpty()
+        ? wxString(wxLocale::GetSystemLanguage() == wxLANGUAGE_CHINESE_SIMPLIFIED ? wxT("zh_CN") : wxT("en"))
+        : m_savedLanguage;
+    m_langChoice->SetSelection(lang == wxT("zh_CN") ? 1 : 0);
+
+    headerSizer->Add(m_langLabel, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, FromDIP(4));
+    headerSizer->Add(m_langChoice, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, FromDIP(8));
+
+    m_headerBar->SetSizer(headerSizer);
+    parentSizer->Add(m_headerBar, 0, wxEXPAND);
+
+    UpdateHeaderStyle();
+}
+
+void MainWindow::UpdateBreadcrumb()
+{
+    // Determine the root window
+    MainWindow* root = m_rootWindow ? m_rootWindow : this;
+
+    // Build breadcrumb: Root ▸ NavStack... ▸ Current
+    wxString path;
+    wxString rootName = root->m_currentItem && !root->m_currentItem->getName().IsEmpty()
+        ? root->m_currentItem->getName() : wxString(_("Home"));
+    path = rootName;
+
+    if (m_navStack) {
+        for (MainWindow* w : *m_navStack) {
+            wxString name = w->m_currentItem && !w->m_currentItem->getName().IsEmpty()
+                ? w->m_currentItem->getName() : wxString(_("Home"));
+            path += wxT(" \u25B8 ") + name;
         }
-        if (m_backBtn) {
-            m_backBtn->setToolTip(tr("Back"));
-        }
     }
-    QMainWindow::changeEvent(event);
+
+    // Append current item if not root
+    if (this != root) {
+        wxString currentName = m_currentItem && !m_currentItem->getName().IsEmpty()
+            ? m_currentItem->getName() : wxString(_("Home"));
+        path += wxT(" \u25B8 ") + currentName;
+    }
+
+    m_titleLabel->SetLabel(path);
+
+    // Back button: visible only when not at root
+    wxSizer* headerSizer = m_headerBar->GetSizer();
+    if (headerSizer) {
+        headerSizer->Show(m_backBtn, this != root);
+    }
+
+    // Update window title and status bar
+    wxString currentName = m_currentItem && !m_currentItem->getName().IsEmpty()
+        ? m_currentItem->getName() : wxString(_("Home"));
+    SetTitle(wxString::Format(wxT("WiseExec - %s"), currentName));
+    if (m_statusBar) {
+        m_statusBar->SetStatusText(wxString::Format(_("Current: %s"), path));
+    }
+    Layout();
 }
 
-void MainWindow::setupLanguageToggle()
+void MainWindow::UpdateHeaderStyle()
 {
-    languageLabel = new QLabel(this);
-    languageCombo = new QComboBox(this);
-    languageCombo->addItem("English", QString("en"));
-    languageCombo->addItem("中文", QString("zh_CN"));
-
-    QString lang;
-    if (!m_savedLanguage.isEmpty()) {
-        lang = m_savedLanguage;
-    } else {
-        lang = (QLocale::system().name() == "zh_CN") ? "zh_CN" : "en";
-    }
-    int defaultIndex = (lang == "zh_CN") ? 1 : 0;
-    languageCombo->setCurrentIndex(defaultIndex);
-
-    connect(languageCombo, &QComboBox::currentIndexChanged, this, &MainWindow::onLanguageChanged);
-
-    QWidget *langContainer = new QWidget(this);
-    QHBoxLayout *langLayout = new QHBoxLayout(langContainer);
-    langLayout->setContentsMargins(0, 0, 8, 0);
-    langLayout->addWidget(languageLabel);
-    langLayout->addWidget(languageCombo);
-    langContainer->setStyleSheet(
-        "QLabel { color: #ffffff; font-size: 12px; }"
-        "QComboBox { background-color: rgba(255,255,255,0.15); color: #ffffff; "
-        "  border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; "
-        "  padding: 2px 6px; font-size: 12px; min-width: 80px; }"
-        "QComboBox:hover { background-color: rgba(255,255,255,0.25); }"
-        "QComboBox::drop-down { border: none; }"
-        "QComboBox QAbstractItemView { background-color: #ffffff; color: #2c3e50; "
-        "  selection-background-color: #e8f0fe; selection-color: #1a73e8; }"
-    );
-    ui->menubar->setCornerWidget(langContainer, Qt::TopRightCorner);
-
-    retranslateLanguageToggle();
-
-    QTranslator *initialTranslator = new QTranslator(this);
-    if (initialTranslator->load(":/i18n/QuickStart_" + lang)) {
-        currentTranslator = initialTranslator;
-        qApp->installTranslator(initialTranslator);
-    } else {
-        delete initialTranslator;
-    }
-}
-
-void MainWindow::retranslateLanguageToggle()
-{
-    languageLabel->setText(tr("Language:"));
-    languageCombo->setItemText(0, tr("English"));
-    languageCombo->setItemText(1, tr("Chinese"));
-}
-
-void MainWindow::onLanguageChanged(int index)
-{
-    QString locale = languageCombo->itemData(index).toString();
-
-    QTranslator *translator = new QTranslator(this);
-    if (translator->load(":/i18n/QuickStart_" + locale)) {
-        if (currentTranslator) {
-            qApp->removeTranslator(currentTranslator);
-            delete currentTranslator;
-        }
-        currentTranslator = translator;
-        qApp->installTranslator(translator);
-        saveConfig();
-    } else {
-        delete translator;
-    }
-}
-
-void MainWindow::onToggleDarkMode(bool checked)
-{
-    m_darkMode = checked;
-    delegate->setDarkMode(checked);
-    if (checked) {
-        qApp->setStyleSheet(m_lightStyleSheet + "\n" + DARK_OVERLAYS);
-        m_headerWidget->setStyleSheet(
-            "QWidget#headerBar {"
-            "  background-color: #0d47a1;"
-            "}"
-            "QToolButton {"
-            "  background: transparent;"
-            "  border: none;"
-            "  color: #e0e0e0;"
-            "  padding: 6px 12px;"
-            "  border-radius: 6px;"
-            "  font-size: 20px;"
-            "}"
-            "QToolButton:hover {"
-            "  background-color: rgba(255,255,255,0.15);"
-            "}"
-            "QLabel {"
-            "  color: #e0e0e0;"
-            "  font-size: 15px;"
-            "  font-weight: 500;"
-            "  padding: 0px;"
-            "}"
-        );
-    } else {
-        qApp->setStyleSheet(m_lightStyleSheet);
-        m_headerWidget->setStyleSheet(
-            "QWidget#headerBar {"
-            "  background-color: #1a73e8;"
-            "}"
-            "QToolButton {"
-            "  background: transparent;"
-            "  border: none;"
-            "  color: #ffffff;"
-            "  padding: 6px 12px;"
-            "  border-radius: 6px;"
-            "  font-size: 20px;"
-            "}"
-            "QToolButton:hover {"
-            "  background-color: rgba(255,255,255,0.15);"
-            "}"
-            "QLabel {"
-            "  color: #ffffff;"
-            "  font-size: 15px;"
-            "  font-weight: 500;"
-            "  padding: 0px;"
-            "}"
-        );
-    }
-    refreshIconList();
-    saveConfig();
-}
-
-void MainWindow::setupHeaderBar()
-{
-    m_headerWidget = new QWidget(this);
-    m_headerWidget->setObjectName("headerBar");
-    m_headerWidget->setFixedHeight(52);
     if (m_darkMode) {
-        m_headerWidget->setStyleSheet(
-            "QWidget#headerBar {"
-            "  background-color: #0d47a1;"
-            "}"
-            "QToolButton {"
-            "  background: transparent;"
-            "  border: none;"
-            "  color: #e0e0e0;"
-            "  padding: 6px 12px;"
-            "  border-radius: 6px;"
-            "  font-size: 20px;"
-            "}"
-            "QToolButton:hover {"
-            "  background-color: rgba(255,255,255,0.15);"
-            "}"
-            "QLabel {"
-            "  color: #e0e0e0;"
-            "  font-size: 15px;"
-            "  font-weight: 500;"
-            "  padding: 0px;"
-            "}"
-        );
+        m_headerBar->SetBackgroundColour(wxColour(0x0d, 0x47, 0xa1));
+        m_titleLabel->SetForegroundColour(wxColour(0xe0, 0xe0, 0xe0));
+        m_langLabel->SetForegroundColour(wxColour(0xe0, 0xe0, 0xe0));
+        m_backBtn->SetForegroundColour(wxColour(0xe0, 0xe0, 0xe0));
     } else {
-        m_headerWidget->setStyleSheet(
-            "QWidget#headerBar {"
-            "  background-color: #1a73e8;"
-            "}"
-            "QToolButton {"
-            "  background: transparent;"
-            "  border: none;"
-            "  color: #ffffff;"
-            "  padding: 6px 12px;"
-            "  border-radius: 6px;"
-            "  font-size: 20px;"
-            "}"
-            "QToolButton:hover {"
-            "  background-color: rgba(255,255,255,0.15);"
-            "}"
-            "QLabel {"
-            "  color: #ffffff;"
-            "  font-size: 15px;"
-            "  font-weight: 500;"
-            "  padding: 0px;"
-            "}"
-        );
+        m_headerBar->SetBackgroundColour(wxColour(0x1a, 0x73, 0xe8));
+        m_titleLabel->SetForegroundColour(*wxWHITE);
+        m_langLabel->SetForegroundColour(*wxWHITE);
+        m_backBtn->SetForegroundColour(*wxWHITE);
     }
-
-    QHBoxLayout *headerLayout = new QHBoxLayout(m_headerWidget);
-    headerLayout->setContentsMargins(8, 4, 8, 4);
-    headerLayout->setSpacing(6);
-
-    m_backBtn = new QToolButton(this);
-    m_backBtn->setText(QStringLiteral("\u2190"));
-    m_backBtn->setToolTip(tr("Back"));
-    m_backBtn->setVisible(false);
-
-    m_titleLabel = new QLabel(this);
-    m_titleLabel->setContentsMargins(4, 0, 0, 0);
-
-    headerLayout->addWidget(m_backBtn);
-    headerLayout->addWidget(m_titleLabel, 1);
-
-    QVBoxLayout *centralLayout = qobject_cast<QVBoxLayout*>(ui->centralwidget->layout());
-    if (centralLayout) {
-        centralLayout->insertWidget(0, m_headerWidget);
-    }
-
-    connect(m_backBtn, &QToolButton::clicked, this, &MainWindow::onBackClicked);
-
-    m_backBtn->setVisible(parent() != nullptr);
-    QString title = currentItem ? currentItem->getName() : QString();
-    if (title.isEmpty()) title = tr("Home");
-    m_titleLabel->setText(title);
+    m_headerBar->Refresh();
 }
 
-void MainWindow::onBackClicked()
+void MainWindow::SetupContextMenu()
 {
-    MainWindow *parentWin = qobject_cast<MainWindow*>(parent());
-    if (parentWin) {
-        parentWin->refreshIconList();
-        parentWin->show();
+    m_contextMenu = new wxMenu();
+    m_contextMenu->Append(ID_EDIT, _("Edit"));
+    m_contextMenu->Append(ID_DELETE, _("Delete"));
+
+    // Bind context menu events
+    Bind(wxEVT_MENU, [this](wxCommandEvent&) {
+        if (m_contextIndex >= 0) EditItem(m_contextIndex);
+    }, ID_EDIT);
+    Bind(wxEVT_MENU, [this](wxCommandEvent&) {
+        if (m_contextIndex >= 0) DeleteItem(m_contextIndex);
+    }, ID_DELETE);
+}
+
+void MainWindow::RefreshIconList()
+{
+    if (!m_currentItem || !m_gridPanel) return;
+
+    std::vector<IconGridItem> items;
+
+    for (const auto& app : m_currentItem->getSubApps()) {
+        IconGridItem item;
+        item.name = app->getName();
+        item.icon = app->getIcon(64);
+        item.tag = IconGridItem::TagAppItem;
+        item.data = app.get();
+        items.push_back(item);
     }
-    close();
+
+    for (const auto& func : m_currentItem->getFuncs()) {
+        IconGridItem item;
+        item.name = func->getName();
+        item.icon = func->getIcon(64);
+        item.tag = IconGridItem::TagFuncItem;
+        item.data = func.get();
+        items.push_back(item);
+    }
+
+    // Add button
+    {
+        wxColour addBg = m_darkMode ? wxColour(0x3a, 0x3a, 0x3a) : wxColour(0xe8, 0xea, 0xed);
+        wxColour addFg = m_darkMode ? wxColour(0x9a, 0xa0, 0xa6) : wxColour(0x5f, 0x63, 0x68);
+        IconGridItem item;
+        item.name = _("+ Add");
+        item.icon = IconGenerator::generateIcon(wxT("+"), addBg, addFg, 64);
+        item.tag = IconGridItem::TagNull;
+        item.data = nullptr;
+        items.push_back(item);
+    }
+
+    m_gridPanel->setItems(items);
 }
 
-void MainWindow::setupContextMenu()
+void MainWindow::OnItemClicked(int index)
 {
-    contextMenu = new QMenu(this);
+    if (index < 0 || index >= static_cast<int>(m_gridPanel->getItems().size())) return;
 
-    editAction = new QAction(tr("Edit"), this);
-    deleteAction = new QAction(tr("Delete"), this);
+    const auto& item = m_gridPanel->getItems()[index];
 
-    connect(editAction, &QAction::triggered, this, &MainWindow::onEditItem);
-    connect(deleteAction, &QAction::triggered, this, &MainWindow::onDeleteItem);
-
-    contextMenu->addAction(editAction);
-    contextMenu->addAction(deleteAction);
-
-    ui->iconListWidget->setContextMenuPolicy(Qt::CustomContextMenu);
-    connect(ui->iconListWidget, &QWidget::customContextMenuRequested,
-            this, &MainWindow::showContextMenu);
-}
-
-void MainWindow::showContextMenu(const QPoint &pos)
-{
-    contextMenuItem = ui->iconListWidget->itemAt(pos);
-
-    if (contextMenuItem) {
-        int tag = contextMenuItem->data(Qt::UserRole + 1).toInt();
-        if (tag == TagNull) {
-            return;
+    if (item.tag == IconGridItem::TagNull) {
+        // Show add dialog
+        wxMessageDialog dlg(this, _("Please select the type to add:"),
+                           _("Select Type"),
+                           wxYES_NO | wxCANCEL | wxICON_QUESTION);
+        dlg.SetYesNoCancelLabels(_("Add App"), _("Add Function"), _("Cancel"));
+        int result = dlg.ShowModal();
+        if (result == wxID_YES) {
+            wxCommandEvent dummy;
+            OnAddApp(dummy);
+        } else if (result == wxID_NO) {
+            wxCommandEvent dummy;
+            OnAddFunc(dummy);
         }
-        contextMenu->exec(ui->iconListWidget->mapToGlobal(pos));
+        return;
+    }
+
+    if (item.tag == IconGridItem::TagAppItem) {
+        auto* appItem = static_cast<AppItem*>(item.data);
+        if (m_currentItem->getSubApps().end() !=
+            std::find_if(m_currentItem->getSubApps().begin(), m_currentItem->getSubApps().end(),
+                [appItem](const std::shared_ptr<AppItem>& p) { return p.get() == appItem; })) {
+            if (m_navStack && (m_navStack->empty() || m_navStack->back() != this)) {
+                m_navStack->push_back(this);
+            }
+            MainWindow* newWindow = new MainWindow(appItem, this);
+            newWindow->Show();
+            this->Hide();
+        }
+    } else if (item.tag == IconGridItem::TagFuncItem) {
+        auto* funcItem = static_cast<FuncItem*>(item.data);
+        for (const auto& cmd : funcItem->getCmds()) {
+            wxExecute(cmd, wxEXEC_ASYNC);
+        }
     }
 }
 
-void MainWindow::onEditItem()
+void MainWindow::OnItemRightClick(int index, wxPoint pos)
 {
-    if (!contextMenuItem || !currentItem) return;
+    const auto& items = m_gridPanel->getItems();
+    if (index < 0 || index >= static_cast<int>(items.size())) return;
+    if (items[index].tag == IconGridItem::TagNull) return;
 
-    int tag = contextMenuItem->data(Qt::UserRole + 1).toInt();
-    if (tag == TagAppItem) {
-        auto *appItem = static_cast<AppItem*>(contextMenuItem->data(Qt::UserRole).value<QObject*>());
-        if (currentItem->getSubApps().contains(appItem)) {
-            AppConfigDialog dialog(appItem, this);
-            if (dialog.exec() == QDialog::Accepted) {
-                AppItem *newApp = dialog.getNewApp();
-                if (newApp) {
-                    int index = currentItem->getSubApps().indexOf(appItem);
-                    if (index != -1) {
-                        currentItem->removeSubApp(appItem);
-                        currentItem->addSubApp(newApp);
-                        contextMenuItem = nullptr;
-                        refreshIconList();
-                        saveConfig();
-                    }
-                }
+    m_contextIndex = index;
+    m_gridPanel->PopupMenu(m_contextMenu, m_gridPanel->ScreenToClient(pos));
+}
+
+void MainWindow::EditItem(int index)
+{
+    const auto& items = m_gridPanel->getItems();
+    if (index < 0 || index >= static_cast<int>(items.size())) return;
+
+    if (items[index].tag == IconGridItem::TagAppItem) {
+        auto* appItem = static_cast<AppItem*>(items[index].data);
+        AppConfigDialog dlg(this, appItem);
+        if (dlg.ShowModal() == wxID_OK) {
+            auto result = dlg.getResult();
+            if (result) {
+                m_currentItem->removeSubApp(appItem);
+                m_currentItem->addSubApp(result);
+                RefreshIconList();
+                SaveConfig();
+            }
+        }
+    } else if (items[index].tag == IconGridItem::TagFuncItem) {
+        auto* funcItem = static_cast<FuncItem*>(items[index].data);
+        FuncConfigDialog dlg(this, funcItem);
+        if (dlg.ShowModal() == wxID_OK) {
+            auto result = dlg.getResult();
+            if (result) {
+                m_currentItem->removeFunc(funcItem);
+                m_currentItem->addFunc(result);
+                RefreshIconList();
+                SaveConfig();
             }
         }
     }
-    else if (tag == TagFuncItem) {
-        auto *funcItem = static_cast<FuncItem*>(contextMenuItem->data(Qt::UserRole).value<QObject*>());
-        if (currentItem->getFuncs().contains(funcItem)) {
-            FuncConfigDialog dialog(funcItem, this);
-            if (dialog.exec() == QDialog::Accepted) {
-                FuncItem *newFunc = dialog.getNewFunc();
-                if (newFunc) {
-                    int index = currentItem->getFuncs().indexOf(funcItem);
-                    if (index != -1) {
-                        currentItem->removeFunc(funcItem);
-                        currentItem->addFunc(newFunc);
-                        contextMenuItem = nullptr;
-                        refreshIconList();
-                        saveConfig();
-                    }
-                }
-            }
+    m_contextIndex = -1;
+}
+
+void MainWindow::DeleteItem(int index)
+{
+    const auto& items = m_gridPanel->getItems();
+    if (index < 0 || index >= static_cast<int>(items.size())) return;
+
+    wxString itemName = items[index].name;
+    wxMessageDialog dlg(this,
+        wxString::Format(_("Are you sure you want to delete \"%s\"?"), itemName),
+        _("Confirm Delete"), wxYES_NO | wxICON_QUESTION);
+
+    if (dlg.ShowModal() == wxID_YES) {
+        if (items[index].tag == IconGridItem::TagAppItem) {
+            auto* appItem = static_cast<AppItem*>(items[index].data);
+            m_currentItem->removeSubApp(appItem);
+        } else if (items[index].tag == IconGridItem::TagFuncItem) {
+            auto* funcItem = static_cast<FuncItem*>(items[index].data);
+            m_currentItem->removeFunc(funcItem);
+        }
+        RefreshIconList();
+        SaveConfig();
+    }
+    m_contextIndex = -1;
+}
+
+void MainWindow::OnAddApp(wxCommandEvent&)
+{
+    AppConfigDialog dlg(this);
+    if (dlg.ShowModal() == wxID_OK) {
+        auto result = dlg.getResult();
+        if (result) {
+            m_currentItem->addSubApp(result);
+            RefreshIconList();
+            SaveConfig();
         }
     }
 }
 
-void MainWindow::onDeleteItem()
+void MainWindow::OnAddFunc(wxCommandEvent&)
 {
-    if (!contextMenuItem || !currentItem) return;
-
-    int tag = contextMenuItem->data(Qt::UserRole + 1).toInt();
-    if (tag == TagNull) return;
-
-    QString itemName = contextMenuItem->text();
-
-    QMessageBox::StandardButton reply;
-    reply = QMessageBox::question(this, tr("Confirm Delete"),
-                                 tr("Are you sure you want to delete \"%1\"?").arg(itemName),
-                                 QMessageBox::Yes | QMessageBox::No);
-
-    if (reply == QMessageBox::Yes) {
-        if (tag == TagAppItem) {
-            auto *appItem = static_cast<AppItem*>(contextMenuItem->data(Qt::UserRole).value<QObject*>());
-            if (currentItem->getSubApps().contains(appItem)) {
-                currentItem->removeSubApp(appItem);
-                contextMenuItem = nullptr;
-                refreshIconList();
-                saveConfig();
-                return;
-            }
-        }
-        else if (tag == TagFuncItem) {
-            auto *funcItem = static_cast<FuncItem*>(contextMenuItem->data(Qt::UserRole).value<QObject*>());
-            if (currentItem->getFuncs().contains(funcItem)) {
-                currentItem->removeFunc(funcItem);
-                contextMenuItem = nullptr;
-                refreshIconList();
-                saveConfig();
-                return;
-            }
+    FuncConfigDialog dlg(this);
+    if (dlg.ShowModal() == wxID_OK) {
+        auto result = dlg.getResult();
+        if (result) {
+            m_currentItem->addFunc(result);
+            RefreshIconList();
+            SaveConfig();
         }
     }
 }
 
-void MainWindow::loadConfig()
+void MainWindow::OnOpenConfig(wxCommandEvent&)
 {
-    QFile yamlFile(AppConfig::CONFIG_FILE_PATH_YAML);
-    if (yamlFile.exists() && yamlFile.open(QIODevice::ReadOnly)) {
-        QByteArray data = yamlFile.readAll();
-        yamlFile.close();
+    wxString configPath = wxFileName(wxGetCwd(), AppConfig::CONFIG_FILE_PATH_YAML).GetFullPath();
+    if (!wxFileName::FileExists(configPath)) {
+        configPath = wxFileName(wxGetCwd(), AppConfig::CONFIG_FILE_PATH).GetFullPath();
+    }
 
+    if (wxFileName::FileExists(configPath)) {
+        wxLaunchDefaultApplication(configPath);
+    } else {
+        wxMessageBox(wxString::Format(wxT("Config file not found: %s"), configPath),
+                     wxT("Open Config"), wxOK | wxICON_WARNING, this);
+    }
+}
+
+void MainWindow::OnToggleDarkMode(wxCommandEvent& event)
+{
+    m_darkMode = event.IsChecked();
+    m_gridPanel->setDarkMode(m_darkMode);
+    UpdateHeaderStyle();
+    RefreshIconList();
+    SaveConfig();
+}
+
+void MainWindow::OnLanguageChanged(wxCommandEvent&)
+{
+    int sel = m_langChoice->GetSelection();
+    wxString locale = (sel == 1) ? wxT("zh_CN") : wxT("en");
+
+    m_savedLanguage = locale;
+    SaveConfig();
+
+    // Relaunch the app to apply the new language
+    wxString exePath = wxStandardPaths::Get().GetExecutablePath();
+    wxExecute(exePath, wxEXEC_ASYNC | wxEXEC_NOHIDE);
+
+    // Close all windows
+    for (wxWindow* win : wxTopLevelWindows) {
+        win->Close(true);
+    }
+}
+
+void MainWindow::OnBackClicked(wxCommandEvent&)
+{
+    m_navigatingBack = true;
+    // Pop the current window's parent from the stack
+    if (m_navStack && !m_navStack->empty()) {
+        m_navStack->pop_back();
+    }
+    // Show previous window or root
+    if (m_navStack && !m_navStack->empty()) {
+        MainWindow* prev = m_navStack->back();
+        prev->RefreshIconList();
+        prev->UpdateBreadcrumb();
+        prev->Show();
+    } else if (m_rootWindow) {
+        m_rootWindow->RefreshIconList();
+        m_rootWindow->UpdateBreadcrumb();
+        m_rootWindow->Show();
+    }
+    Close();
+}
+
+void MainWindow::OnAboutQuickStart(wxCommandEvent&)
+{
+    wxString msg = wxT("WiseExec v2.0.0\n\n");
+    msg += _("A simple app launcher tool");
+    msg += wxT("\n\nCopyright (C) 2024");
+    wxMessageBox(msg, _("About WiseExec"), wxOK | wxICON_INFORMATION, this);
+}
+
+void MainWindow::OnAbout(wxCommandEvent&)
+{
+    wxMessageBox(wxString::Format(wxT("wxWidgets %s\n"
+                                      "Using %s\n"
+                                      "Built with %s"),
+                   wxVERSION_STRING,
+                   wxPlatformInfo::Get().GetOperatingSystemDescription(),
+                   wxVERSION_STRING),
+                 _("About wxWidgets"), wxOK | wxICON_INFORMATION, this);
+}
+
+void MainWindow::OnExit(wxCommandEvent&)
+{
+    Close(true);
+}
+
+void MainWindow::OnClose(wxCloseEvent&)
+{
+    SaveConfig();
+
+    if (!m_navigatingBack) {
+        // Remove this window from nav stack if present
+        if (m_navStack) {
+            m_navStack->erase(
+                std::remove(m_navStack->begin(), m_navStack->end(), this),
+                m_navStack->end());
+        }
+        // Show previous window or root
+        if (m_navStack && !m_navStack->empty()) {
+            MainWindow* prev = m_navStack->back();
+            prev->RefreshIconList();
+            prev->UpdateBreadcrumb();
+            prev->Show();
+        } else if (m_rootWindow) {
+            m_rootWindow->RefreshIconList();
+            m_rootWindow->UpdateBreadcrumb();
+            m_rootWindow->Show();
+        }
+    }
+
+    Destroy();
+}
+
+void MainWindow::LoadConfig()
+{
+    // Try YAML first
+    wxString yamlPath = wxFileName(wxGetCwd(), AppConfig::CONFIG_FILE_PATH_YAML).GetFullPath();
+    if (wxFileName::FileExists(yamlPath)) {
         try {
-            YAML::Node rootNode = YAML::Load(data.toStdString());
+            YAML::Node rootNode = YAML::LoadFile(yamlPath.ToStdString());
             if (rootNode && rootNode.IsMap()) {
                 if (rootNode["language"]) {
-                    m_savedLanguage = QString::fromStdString(rootNode["language"].as<std::string>());
+                    m_savedLanguage = wxString::FromUTF8(rootNode["language"].as<std::string>().c_str());
                 }
                 if (rootNode["theme"]) {
-                    QString theme = QString::fromStdString(rootNode["theme"].as<std::string>());
-                    m_darkMode = (theme == "dark");
+                    wxString theme = wxString::FromUTF8(rootNode["theme"].as<std::string>().c_str());
+                    m_darkMode = (theme == wxT("dark"));
                 }
-                auto *newRoot = new AppItem();
-                newRoot->fromYaml(rootNode);
-                rootItem = newRoot;
+                m_rootItem = new AppItem();
+                m_rootItem->fromYaml(rootNode);
                 return;
             }
-        } catch (const YAML::Exception &) {
+        } catch (const YAML::Exception&) {
         }
     }
 
-    QFile jsonFile(AppConfig::CONFIG_FILE_PATH);
-    if (jsonFile.exists() && jsonFile.open(QIODevice::ReadOnly)) {
-        QByteArray data = jsonFile.readAll();
-        jsonFile.close();
-
-        QJsonDocument doc = QJsonDocument::fromJson(data);
-        if (!doc.isNull() && doc.isObject()) {
-            rootItem = new AppItem();
-            rootItem->fromJson(doc.object());
-        } else {
-            rootItem = new AppItem("Home", "");
-        }
-    } else {
-        rootItem = new AppItem("Home", "");
-    }
+    // Fallback: JSON (simplified - just create default)
+    m_rootItem = new AppItem(wxT("Home"), wxT(""));
 }
 
-void MainWindow::saveConfig()
+void MainWindow::SaveConfig()
 {
-    if (!rootItem) return;
+    if (!m_rootItem) return;
 
-    YAML::Node rootNode = rootItem->toYaml();
-    if (languageCombo) {
-        rootNode["language"] = languageCombo->currentData().toString().toStdString();
+    YAML::Node rootNode = m_rootItem->toYaml();
+    if (m_langChoice) {
+        rootNode["language"] = (m_langChoice->GetSelection() == 1) ? "zh_CN" : "en";
     }
     rootNode["theme"] = m_darkMode ? "dark" : "light";
+
     YAML::Emitter emitter;
     emitter.SetIndent(4);
     emitter << rootNode;
-    if (!emitter.good()) {
-        QMessageBox::warning(this, tr("Error"), tr("Failed to serialize config: %1").arg(emitter.GetLastError().c_str()));
-        return;
+
+    wxString yamlPath = wxFileName(wxGetCwd(), AppConfig::CONFIG_FILE_PATH_YAML).GetFullPath();
+    FILE* f = fopen(yamlPath.ToStdString().c_str(), "w");
+    if (f) {
+        fprintf(f, "%s", emitter.c_str());
+        fclose(f);
     }
-
-    QFile configFile(AppConfig::CONFIG_FILE_PATH_YAML);
-    if (configFile.open(QIODevice::WriteOnly)) {
-        configFile.write(emitter.c_str());
-        configFile.close();
-    } else {
-        QMessageBox::warning(this, tr("Notice"), tr("Failed to save config file, please check file permissions"));
-    }
-}
-
-void MainWindow::refreshIconList()
-{
-    if (!currentItem) return;
-
-    ui->iconListWidget->clear();
-
-    for (AppItem *app : currentItem->getSubApps()) {
-        QListWidgetItem *item = new QListWidgetItem();
-        item->setText(app->getName());
-        item->setIcon(app->getIcon());
-        item->setData(Qt::UserRole, QVariant::fromValue<QObject*>(app));
-        item->setData(Qt::UserRole + 1, TagAppItem);
-        ui->iconListWidget->addItem(item);
-    }
-
-    for (FuncItem *func : currentItem->getFuncs()) {
-        QListWidgetItem *item = new QListWidgetItem();
-        item->setText(func->getName());
-        item->setIcon(func->getIcon());
-        item->setData(Qt::UserRole, QVariant::fromValue<QObject*>(func));
-        item->setData(Qt::UserRole + 1, TagFuncItem);
-        ui->iconListWidget->addItem(item);
-    }
-
-    QListWidgetItem *addItem = new QListWidgetItem();
-    addItem->setText(tr("+ Add"));
-    {
-        QColor addBg = m_darkMode ? QColor("#3a3a3a") : QColor("#e8eaed");
-        QColor addFg = m_darkMode ? QColor("#9aa0a6") : QColor("#5f6368");
-        addItem->setIcon(IconGenerator::generateIcon("+", addBg, addFg, 64));
-    }
-    addItem->setData(Qt::UserRole, QVariant::fromValue<QObject*>(nullptr));
-    addItem->setData(Qt::UserRole + 1, TagNull);
-    ui->iconListWidget->addItem(addItem);
-}
-
-void MainWindow::onIconListItemClicked(QListWidgetItem *item)
-{
-    if (!item) return;
-
-    int tag = item->data(Qt::UserRole + 1).toInt();
-
-    if (tag == TagNull) {
-        QMessageBox msgBox(this);
-        msgBox.setWindowTitle(tr("Select Type"));
-        msgBox.setText(tr("Please select the type to add:"));
-
-        QPushButton *appBtn = msgBox.addButton(tr("Add App"), QMessageBox::ActionRole);
-        QPushButton *funcBtn = msgBox.addButton(tr("Add Function"), QMessageBox::ActionRole);
-        msgBox.addButton(tr("Cancel"), QMessageBox::RejectRole);
-
-        msgBox.exec();
-
-        QAbstractButton *clickedBtn = msgBox.clickedButton();
-        if (clickedBtn == appBtn) {
-            onAddAppClicked();
-        } else if (clickedBtn == funcBtn) {
-            onAddFuncClicked();
-        }
-        return;
-    }
-    else if (tag == TagAppItem) {
-        auto *appItem = static_cast<AppItem*>(item->data(Qt::UserRole).value<QObject*>());
-        if (currentItem->getSubApps().contains(appItem)) {
-            MainWindow *newWindow = new MainWindow(appItem, this);
-            newWindow->setAttribute(Qt::WA_DeleteOnClose);
-            newWindow->show();
-            this->hide();
-        }
-    }
-    else if (tag == TagFuncItem) {
-        auto *funcItem = static_cast<FuncItem*>(item->data(Qt::UserRole).value<QObject*>());
-        for (const QString &cmd : funcItem->getCmds()) {
-            QStringList parts = QProcess::splitCommand(cmd);
-            if (!parts.isEmpty()) {
-                QString program = parts.first();
-                QStringList args = parts.mid(1);
-                if (!QProcess::startDetached(program, args)) {
-                    QMessageBox::warning(this, tr("Launch Error"),
-                        tr("Failed to launch: %1").arg(program));
-                }
-            }
-        }
-    }
-}
-
-void MainWindow::onAddAppClicked()
-{
-    AppConfigDialog dialog(this);
-    if (dialog.exec() == QDialog::Accepted) {
-        AppItem *newApp = dialog.getNewApp();
-        if (newApp) {
-            currentItem->addSubApp(newApp);
-            refreshIconList();
-            saveConfig();
-        }
-    }
-}
-
-void MainWindow::onAddFuncClicked()
-{
-    FuncConfigDialog dialog(this);
-    if (dialog.exec() == QDialog::Accepted) {
-        FuncItem *newFunc = dialog.getNewFunc();
-        if (newFunc) {
-            currentItem->addFunc(newFunc);
-            refreshIconList();
-            saveConfig();
-        }
-    }
-}
-
-void MainWindow::onOpenConfig()
-{
-    QString configPath = QDir::current().absoluteFilePath(AppConfig::CONFIG_FILE_PATH_YAML);
-    QFileInfo fileInfo(configPath);
-
-    if (!fileInfo.exists()) {
-        configPath = QDir::current().absoluteFilePath(AppConfig::CONFIG_FILE_PATH);
-        fileInfo = QFileInfo(configPath);
-    }
-
-    if (fileInfo.exists()) {
-        QUrl fileUrl = QUrl::fromLocalFile(configPath);
-        QDesktopServices::openUrl(fileUrl);
-    } else {
-        QMessageBox::warning(this, tr("Open Config"),
-            tr("Config file not found: %1").arg(configPath));
-    }
-}
-
-void MainWindow::onExit()
-{
-    close();
-}
-
-void MainWindow::onAboutQuickStart()
-{
-    QMessageBox::about(this, tr("About QuickStart"),
-        AppConfig::aboutHtml());
-}
-
-void MainWindow::onAboutQt()
-{
-    QMessageBox::aboutQt(this, tr("About Qt"));
 }

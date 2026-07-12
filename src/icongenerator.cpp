@@ -1,156 +1,114 @@
 #include "icongenerator.h"
-#include <QPainter>
-#include <QFont>
-#include <QFontMetrics>
-#include <QRandomGenerator>
-#include <QCryptographicHash>
-#include <QByteArray>
-#include <QRadialGradient>
-#include <QLinearGradient>
+#include <wx/dc.h>
+#include <wx/dcmemory.h>
+#include <wx/graphics.h>
+#include <wx/log.h>
+#include <wx/mstream.h>
+#include <cstring>
 
-IconGenerator::IconGenerator(QObject *parent)
-    : QObject(parent)
+// Use simple hash instead of OpenSSL for portability
+static unsigned int simpleHash(const wxString& str)
 {
-}
-
-QIcon IconGenerator::generateDefaultIcon(const QString &name, int size)
-{
-    if (name.isEmpty()) {
-        return generateIcon("?", Qt::gray, Qt::white, size);
+    unsigned int hash = 5381;
+    for (unsigned int i = 0; i < str.Length(); i++) {
+        hash = ((hash << 5) + hash) + static_cast<unsigned int>(str[i]);
     }
-
-    QString firstChar = name.left(1).toUpper();
-
-    QColor backgroundColor = getColorForName(name);
-
-    return generateIcon(firstChar, backgroundColor, Qt::white, size);
+    return hash;
 }
 
-QIcon IconGenerator::generateIcon(const QString &text, const QColor &backgroundColor,
-                                 const QColor &textColor, int size)
+const std::vector<wxColour>& IconGenerator::getDefaultColors()
 {
-    QPixmap pixmap = drawCircularIcon(text, backgroundColor, textColor, size);
-    return QIcon(pixmap);
-}
-
-const QList<QColor>& IconGenerator::getDefaultColors()
-{
-    static const QList<QColor> colors = {
-        QColor(66, 133, 244),   // Blue
-        QColor(219, 68, 55),    // Red
-        QColor(244, 180, 0),    // Yellow
-        QColor(15, 157, 88),    // Green
-        QColor(171, 71, 188),   // Purple
-        QColor(0, 172, 193),    // Cyan
-        QColor(255, 112, 67),   // Orange
-        QColor(121, 85, 72),    // Brown
-        QColor(158, 158, 158),  // Gray
-        QColor(96, 125, 139)    // Blue Gray
+    static const std::vector<wxColour> colors = {
+        wxColour(66, 133, 244),   // Blue
+        wxColour(219, 68, 55),    // Red
+        wxColour(244, 180, 0),    // Yellow
+        wxColour(15, 157, 88),    // Green
+        wxColour(171, 71, 188),   // Purple
+        wxColour(0, 172, 193),    // Cyan
+        wxColour(255, 112, 67),   // Orange
+        wxColour(121, 85, 72),    // Brown
+        wxColour(158, 158, 158),  // Gray
+        wxColour(96, 125, 139)    // Blue Gray
     };
     return colors;
 }
 
-static QColor darkenColor(const QColor &c, int factor)
+wxColour IconGenerator::getColorForName(const wxString& name)
 {
-    return QColor(qMax(0, c.red() - factor),
-                  qMax(0, c.green() - factor),
-                  qMax(0, c.blue() - factor));
-}
+    if (name.IsEmpty()) return wxColour(128, 128, 128);
 
-QColor IconGenerator::getColorForName(const QString &name)
-{
-    if (name.isEmpty()) {
-        return Qt::gray;
-    }
-
-    QByteArray hash = QCryptographicHash::hash(name.toUtf8(), QCryptographicHash::Md5);
-
-    int colorIndex = static_cast<unsigned char>(hash[0]) % getDefaultColors().size();
-
+    unsigned int hash = simpleHash(name);
+    int colorIndex = hash % getDefaultColors().size();
     return getDefaultColors().at(colorIndex);
 }
 
-QPixmap IconGenerator::drawCircularIcon(const QString &text, const QColor &backgroundColor,
-                                       const QColor &textColor, int size)
+wxBitmap IconGenerator::generateDefaultIcon(const wxString& name, int size)
 {
-    QPixmap pixmap(size, size);
-    pixmap.fill(Qt::transparent);
-
-    QPainter painter(&pixmap);
-    painter.setRenderHint(QPainter::Antialiasing, true);
-
-    QRadialGradient gradient(size / 2.0, size / 2.0, size / 2.0);
-    QColor lighter = backgroundColor.lighter(130);
-    QColor darkerColor = darkenColor(backgroundColor, 40);
-    gradient.setColorAt(0.0, lighter);
-    gradient.setColorAt(0.6, backgroundColor);
-    gradient.setColorAt(1.0, darkerColor);
-
-    painter.setBrush(gradient);
-    painter.setPen(Qt::NoPen);
-    painter.drawEllipse(2, 2, size - 4, size - 4);
-
-    painter.setPen(textColor);
-
-    int fontSize = size * 0.48;
-    if (text.length() > 1) {
-        fontSize = size * 0.32;
+    if (name.IsEmpty()) {
+        return generateIcon(wxT("?"), wxColour(128, 128, 128), *wxWHITE, size);
     }
 
-    QFont font;
-    font.setPixelSize(fontSize);
-    font.setBold(true);
-    painter.setFont(font);
-
-    QFontMetrics metrics(font);
-    QRect textRect = metrics.boundingRect(text);
-
-    int x = (size - textRect.width()) / 2 - textRect.left();
-    int y = (size - textRect.height()) / 2 - textRect.top() + 1;
-
-    painter.drawText(x, y, text);
-
-    return pixmap;
+    wxString firstChar = name.Left(1).Upper();
+    wxColour bgColor = getColorForName(name);
+    return generateIcon(firstChar, bgColor, *wxWHITE, size);
 }
 
-QPixmap IconGenerator::drawSquareIcon(const QString &text, const QColor &backgroundColor,
-                                     const QColor &textColor, int size)
+wxBitmap IconGenerator::generateIcon(const wxString& text, const wxColour& backgroundColor,
+                                      const wxColour& textColor, int size)
 {
-    QPixmap pixmap(size, size);
-    pixmap.fill(Qt::transparent);
+    return drawCircularIcon(text, backgroundColor, textColor, size);
+}
 
-    QPainter painter(&pixmap);
-    painter.setRenderHint(QPainter::Antialiasing, true);
+static wxColour darkenColor(const wxColour& c, int factor)
+{
+    int r = std::max(0, c.Red() - factor);
+    int g = std::max(0, c.Green() - factor);
+    int b = std::max(0, c.Blue() - factor);
+    return wxColour(r, g, b);
+}
 
-    QLinearGradient gradient(0, 0, size, size);
-    QColor lighter = backgroundColor.lighter(130);
-    QColor darkerColor = darkenColor(backgroundColor, 40);
-    gradient.setColorAt(0.0, lighter);
-    gradient.setColorAt(1.0, darkerColor);
+wxBitmap IconGenerator::drawCircularIcon(const wxString& text, const wxColour& backgroundColor,
+                                          const wxColour& textColor, int size)
+{
+    wxBitmap bmp(size, size, 32);
+    {
+        wxMemoryDC dc(bmp);
+        dc.SetBackground(wxBrush(wxTransparentColour));
+        dc.Clear();
 
-    painter.setBrush(gradient);
-    painter.setPen(Qt::NoPen);
-    painter.drawRoundedRect(2, 2, size - 4, size - 4, 10, 10);
+        // Draw circular gradient background
+        wxGraphicsContext* gc = wxGraphicsContext::Create(dc);
+        if (gc) {
+            // Radial gradient
+            wxPoint2DDouble center(size / 2.0, size / 2.0);
+            wxColour lighter = backgroundColor.ChangeLightness(130);
+            wxColour darker = darkenColor(backgroundColor, 40);
 
-    painter.setPen(textColor);
+            wxGraphicsGradientStops stops(darker, lighter);
+            stops.Add(backgroundColor, 0.6f);
 
-    int fontSize = size * 0.48;
-    if (text.length() > 1) {
-        fontSize = size * 0.32;
+            wxGraphicsBrush brush = gc->CreateRadialGradientBrush(
+                center.m_x, center.m_y, center.m_x, center.m_y, size / 2.0, stops);
+            gc->SetBrush(brush);
+            gc->SetPen(*wxTRANSPARENT_PEN);
+            gc->DrawEllipse(2, 2, size - 4, size - 4);
+
+            // Draw text
+            int fontSize = static_cast<int>(size * 0.48);
+            if (text.Length() > 1) fontSize = static_cast<int>(size * 0.32);
+
+            wxFont font(wxSize(0, fontSize), wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_BOLD);
+            gc->SetFont(font, textColor);
+
+            wxDouble tw, th;
+            gc->GetTextExtent(text, &tw, &th);
+            double tx = (size - tw) / 2.0;
+            double ty = (size - th) / 2.0;
+            gc->DrawText(text, tx, ty);
+
+            delete gc;
+        }
     }
-
-    QFont font;
-    font.setPixelSize(fontSize);
-    font.setBold(true);
-    painter.setFont(font);
-
-    QFontMetrics metrics(font);
-    QRect textRect = metrics.boundingRect(text);
-
-    int x = (size - textRect.width()) / 2 - textRect.left();
-    int y = (size - textRect.height()) / 2 - textRect.top() + 1;
-
-    painter.drawText(x, y, text);
-
-    return pixmap;
+    bmp.SetMask(new wxMask(bmp, wxTransparentColour));
+    return bmp;
 }

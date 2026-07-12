@@ -1,4 +1,7 @@
-name: "主界面"
+name: ""
 iconPath: ""
-subApps: []
-funcs: []
+subApps:
+    -   name: A
+        iconPath: ""
+language: zh_CN
+theme: dark

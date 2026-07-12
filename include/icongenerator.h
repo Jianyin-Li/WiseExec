@@ -1,34 +1,23 @@
 #ifndef ICONGENERATOR_H
 #define ICONGENERATOR_H
 
-#include <QObject>
-#include <QIcon>
-#include <QPixmap>
-#include <QColor>
-#include <QString>
+#include <wx/string.h>
+#include <wx/bitmap.h>
+#include <wx/colour.h>
+#include <vector>
 
-class IconGenerator : public QObject
+class IconGenerator
 {
-    Q_OBJECT
-
 public:
-    explicit IconGenerator(QObject *parent = nullptr);
-    
-    static QIcon generateDefaultIcon(const QString &name, int size = 64);
-
-    static QIcon generateIcon(const QString &text, const QColor &backgroundColor,
-                             const QColor &textColor = Qt::white, int size = 64);
-
-    static const QList<QColor>& getDefaultColors();
-
-    static QColor getColorForName(const QString &name);
+    static wxBitmap generateDefaultIcon(const wxString& name, int size = 64);
+    static wxBitmap generateIcon(const wxString& text, const wxColour& backgroundColor,
+                                  const wxColour& textColor = *wxWHITE, int size = 64);
+    static const std::vector<wxColour>& getDefaultColors();
+    static wxColour getColorForName(const wxString& name);
 
 private:
-    static QPixmap drawCircularIcon(const QString &text, const QColor &backgroundColor,
-                                   const QColor &textColor, int size);
-
-    static QPixmap drawSquareIcon(const QString &text, const QColor &backgroundColor,
-                                 const QColor &textColor, int size);
+    static wxBitmap drawCircularIcon(const wxString& text, const wxColour& backgroundColor,
+                                      const wxColour& textColor, int size);
 };
 
 #endif // ICONGENERATOR_H

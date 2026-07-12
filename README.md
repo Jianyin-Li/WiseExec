@@ -53,10 +53,10 @@ cmake --build build --config Release
 ### 4. 运行应用程序
 ```bash
 # Windows
-build\bin\QtAppLauncher.exe
+build\bin\WiseExec.exe
 
 # Linux/macOS
-./build/bin/QtAppLauncher
+./build/bin/WiseExec
 ```
 
 ## 开发

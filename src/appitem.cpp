@@ -1,21 +1,14 @@
 #include "appitem.h"
+#include "funcitem.h"
 #include "icongenerator.h"
-#include <QJsonArray>
-#include <QFile>
-#include <QFileInfo>
-#include <yaml-cpp/yaml.h>
+#include <wx/filename.h>
 
-AppItem::AppItem(QObject *parent)
-    : QObject(parent)
-    , name("")
-    , iconPath("")
+AppItem::AppItem()
 {
 }
 
-AppItem::AppItem(const QString &name, const QString &iconPath, QObject *parent)
-    : QObject(parent)
-    , name(name)
-    , iconPath(iconPath)
+AppItem::AppItem(const wxString& name, const wxString& iconPath)
+    : m_name(name), m_iconPath(iconPath)
 {
 }
 
@@ -23,148 +16,93 @@ AppItem::~AppItem()
 {
 }
 
-QIcon AppItem::getIcon() const
+wxBitmap AppItem::getIcon(int size) const
 {
-    if (!iconPath.isEmpty()) {
-        QFileInfo fileInfo(iconPath);
-        if (fileInfo.exists()) {
-            return QIcon(iconPath);
+    if (!m_iconPath.IsEmpty()) {
+        wxFileName fn(m_iconPath);
+        if (fn.Exists()) {
+            wxImage img(m_iconPath);
+            if (img.IsOk()) {
+                int w = img.GetWidth();
+                int h = img.GetHeight();
+                int sz = (w > h) ? w : h;
+                img.Rescale(sz, sz, wxIMAGE_QUALITY_HIGH);
+                if (sz > size)
+                    img.Rescale(size, size, wxIMAGE_QUALITY_HIGH);
+                return wxBitmap(img, 32);
+            }
         }
     }
-
-    return IconGenerator::generateDefaultIcon(name);
+    return IconGenerator::generateDefaultIcon(m_name, size);
 }
 
-void AppItem::addSubApp(AppItem *app)
+void AppItem::addSubApp(std::shared_ptr<AppItem> app)
 {
     if (app) {
-        app->setParent(this);
-        subApps.append(app);
+        m_subApps.push_back(app);
     }
 }
 
-void AppItem::addFunc(FuncItem *func)
+void AppItem::addFunc(std::shared_ptr<FuncItem> func)
 {
     if (func) {
-        func->setParent(this);
-        funcs.append(func);
+        m_funcs.push_back(func);
     }
 }
 
-void AppItem::removeSubApp(AppItem *app)
+void AppItem::removeSubApp(AppItem* app)
 {
-    if (app) {
-        subApps.removeAll(app);
-        app->deleteLater();
-    }
+    m_subApps.erase(
+        std::remove_if(m_subApps.begin(), m_subApps.end(),
+            [app](const std::shared_ptr<AppItem>& p) { return p.get() == app; }),
+        m_subApps.end());
 }
 
-void AppItem::removeFunc(FuncItem *func)
+void AppItem::removeFunc(FuncItem* func)
 {
-    if (func) {
-        funcs.removeAll(func);
-        func->deleteLater();
-    }
-}
-
-QJsonObject AppItem::toJson() const
-{
-    QJsonObject obj;
-    obj["name"] = name;
-    obj["iconPath"] = iconPath;
-    
-    QJsonArray subAppsArray;
-    for (const AppItem *app : subApps) {
-        subAppsArray.append(app->toJson());
-    }
-    obj["subApps"] = subAppsArray;
-    
-    QJsonArray funcsArray;
-    for (const FuncItem *func : funcs) {
-        funcsArray.append(func->toJson());
-    }
-    obj["funcs"] = funcsArray;
-    
-    return obj;
-}
-
-void AppItem::fromJson(const QJsonObject &obj)
-{
-    name = obj["name"].toString();
-    iconPath = obj["iconPath"].toString();
-
-    for (AppItem *app : subApps) {
-        app->deleteLater();
-    }
-    for (FuncItem *func : funcs) {
-        func->deleteLater();
-    }
-    subApps.clear();
-    funcs.clear();
-
-    QJsonArray subAppsArray = obj["subApps"].toArray();
-    for (const QJsonValue &value : subAppsArray) {
-        AppItem *app = new AppItem(this);
-        app->fromJson(value.toObject());
-        subApps.append(app);
-    }
-
-    QJsonArray funcsArray = obj["funcs"].toArray();
-    for (const QJsonValue &value : funcsArray) {
-        FuncItem *func = new FuncItem(this);
-        func->fromJson(value.toObject());
-        funcs.append(func);
-    }
+    m_funcs.erase(
+        std::remove_if(m_funcs.begin(), m_funcs.end(),
+            [func](const std::shared_ptr<FuncItem>& p) { return p.get() == func; }),
+        m_funcs.end());
 }
 
 YAML::Node AppItem::toYaml() const
 {
     YAML::Node node;
-    node["name"] = name.toStdString();
-    node["iconPath"] = iconPath.toStdString();
+    node["name"] = m_name.ToStdString();
+    node["iconPath"] = m_iconPath.ToStdString();
 
-    for (const AppItem *app : subApps) {
+    for (const auto& app : m_subApps) {
         node["subApps"].push_back(app->toYaml());
     }
-
-    for (const FuncItem *func : funcs) {
+    for (const auto& func : m_funcs) {
         node["funcs"].push_back(func->toYaml());
     }
-
     return node;
 }
 
-void AppItem::fromYaml(const YAML::Node &node)
+void AppItem::fromYaml(const YAML::Node& node)
 {
-    if (node["name"]) {
-        name = QString::fromStdString(node["name"].as<std::string>());
-    }
-    if (node["iconPath"]) {
-        iconPath = QString::fromStdString(node["iconPath"].as<std::string>());
-    }
+    if (node["name"])
+        m_name = wxString::FromUTF8(node["name"].as<std::string>().c_str());
+    if (node["iconPath"])
+        m_iconPath = wxString::FromUTF8(node["iconPath"].as<std::string>().c_str());
 
-    for (AppItem *app : subApps) {
-        app->deleteLater();
-    }
-    for (FuncItem *func : funcs) {
-        func->deleteLater();
-    }
-    subApps.clear();
-    funcs.clear();
+    m_subApps.clear();
+    m_funcs.clear();
 
     if (node["subApps"] && node["subApps"].IsSequence()) {
-        for (const auto &child : node["subApps"]) {
-            AppItem *app = new AppItem(this);
+        for (const auto& child : node["subApps"]) {
+            auto app = std::make_shared<AppItem>();
             app->fromYaml(child);
-            subApps.append(app);
+            m_subApps.push_back(app);
         }
     }
-
     if (node["funcs"] && node["funcs"].IsSequence()) {
-        for (const auto &child : node["funcs"]) {
-            FuncItem *func = new FuncItem(this);
+        for (const auto& child : node["funcs"]) {
+            auto func = std::make_shared<FuncItem>();
             func->fromYaml(child);
-            funcs.append(func);
+            m_funcs.push_back(func);
         }
     }
 }

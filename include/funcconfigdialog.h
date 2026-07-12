@@ -1,38 +1,39 @@
 #ifndef FUNCCONFIGDIALOG_H
 #define FUNCCONFIGDIALOG_H
 
-#include <QDialog>
+#include <wx/wx.h>
+#include <wx/dialog.h>
+#include <wx/textctrl.h>
+#include <wx/listbox.h>
+#include <wx/panel.h>
 #include "funcitem.h"
 
-namespace Ui {
-class FuncConfigDialog;
-}
-
-class FuncConfigDialog : public QDialog
+class FuncConfigDialog : public wxDialog
 {
-    Q_OBJECT
-
 public:
-    explicit FuncConfigDialog(QWidget *parent = nullptr);
-    explicit FuncConfigDialog(FuncItem *existing, QWidget *parent = nullptr);
+    FuncConfigDialog(wxWindow* parent, FuncItem* existing = nullptr);
     ~FuncConfigDialog();
-    
-    FuncItem* getNewFunc() const;
 
-private slots:
-    void onSelectIconClicked();
-    void onAddCmdClicked();
-    void onSelectExeClicked();
-    void onDelCmdClicked();
-    void onConfirmClicked();
-    void onCancelClicked();
+    std::shared_ptr<FuncItem> getResult() const { return m_result; }
 
 private:
-    void initFromItem(FuncItem *item);
-    
-    Ui::FuncConfigDialog *ui;
-    FuncItem *newFunc;
-    FuncItem *existingItem;
+    void OnSelectIcon(wxCommandEvent& event);
+    void OnAddCmd(wxCommandEvent& event);
+    void OnSelectExe(wxCommandEvent& event);
+    void OnDelCmd(wxCommandEvent& event);
+    void OnConfirm(wxCommandEvent& event);
+    void OnCancel(wxCommandEvent& event);
+    void OnNameChanged(wxCommandEvent& event);
+    void InitFromItem(FuncItem* item);
+    void UpdateIconPreview();
+
+    wxTextCtrl* m_nameEdit;
+    wxTextCtrl* m_iconEdit;
+    wxPanel* m_iconPreview;
+    wxListBox* m_cmdList;
+    std::shared_ptr<FuncItem> m_result;
+
+    wxDECLARE_EVENT_TABLE();
 };
 
 #endif // FUNCCONFIGDIALOG_H

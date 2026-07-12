@@ -1,35 +1,34 @@
 #ifndef APPCONFIGDIALOG_H
 #define APPCONFIGDIALOG_H
 
-#include <QDialog>
+#include <wx/wx.h>
+#include <wx/dialog.h>
+#include <wx/textctrl.h>
+#include <wx/panel.h>
 #include "appitem.h"
 
-namespace Ui {
-class AppConfigDialog;
-}
-
-class AppConfigDialog : public QDialog
+class AppConfigDialog : public wxDialog
 {
-    Q_OBJECT
-
 public:
-    explicit AppConfigDialog(QWidget *parent = nullptr);
-    explicit AppConfigDialog(AppItem *existing, QWidget *parent = nullptr);
+    AppConfigDialog(wxWindow* parent, AppItem* existing = nullptr);
     ~AppConfigDialog();
-    
-    AppItem* getNewApp() const;
 
-private slots:
-    void onSelectIconClicked();
-    void onConfirmClicked();
-    void onCancelClicked();
+    std::shared_ptr<AppItem> getResult() const { return m_result; }
 
 private:
-    void initFromItem(AppItem *item);
-    
-    Ui::AppConfigDialog *ui;
-    AppItem *newApp;
-    AppItem *existingItem;
+    void OnSelectIcon(wxCommandEvent& event);
+    void OnConfirm(wxCommandEvent& event);
+    void OnCancel(wxCommandEvent& event);
+    void OnNameChanged(wxCommandEvent& event);
+    void InitFromItem(AppItem* item);
+    void UpdateIconPreview();
+
+    wxTextCtrl* m_nameEdit;
+    wxTextCtrl* m_iconEdit;
+    wxPanel* m_iconPreview;
+    std::shared_ptr<AppItem> m_result;
+
+    wxDECLARE_EVENT_TABLE();
 };
 
 #endif // APPCONFIGDIALOG_H

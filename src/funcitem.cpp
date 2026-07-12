@@ -1,104 +1,75 @@
 #include "funcitem.h"
 #include "icongenerator.h"
-#include <QJsonArray>
-#include <QFile>
-#include <QFileInfo>
-#include <yaml-cpp/yaml.h>
+#include <wx/filename.h>
 
-FuncItem::FuncItem(QObject *parent)
-    : QObject(parent)
-    , name("")
-    , iconPath("")
+FuncItem::FuncItem()
 {
 }
 
-FuncItem::FuncItem(const QString &name, const QString &iconPath, const QStringList &cmds, QObject *parent)
-    : QObject(parent)
-    , name(name)
-    , iconPath(iconPath)
-    , cmds(cmds)
+FuncItem::FuncItem(const wxString& name, const wxString& iconPath, const std::vector<wxString>& cmds)
+    : m_name(name), m_iconPath(iconPath), m_cmds(cmds)
 {
 }
 
-QIcon FuncItem::getIcon() const
+wxBitmap FuncItem::getIcon(int size) const
 {
-    if (!iconPath.isEmpty()) {
-        QFileInfo fileInfo(iconPath);
-        if (fileInfo.exists()) {
-            return QIcon(iconPath);
+    if (!m_iconPath.IsEmpty()) {
+        wxFileName fn(m_iconPath);
+        if (fn.Exists()) {
+            wxImage img(m_iconPath);
+            if (img.IsOk()) {
+                int w = img.GetWidth();
+                int h = img.GetHeight();
+                int sz = (w > h) ? w : h;
+                img.Rescale(sz, sz, wxIMAGE_QUALITY_HIGH);
+                if (sz > size)
+                    img.Rescale(size, size, wxIMAGE_QUALITY_HIGH);
+                return wxBitmap(img, 32);
+            }
         }
     }
-
-    return IconGenerator::generateDefaultIcon(name);
+    return IconGenerator::generateDefaultIcon(m_name, size);
 }
 
-void FuncItem::addCmd(const QString &cmd)
+void FuncItem::addCmd(const wxString& cmd)
 {
-    if (!cmd.isEmpty() && !cmds.contains(cmd)) {
-        cmds.append(cmd);
+    if (!cmd.IsEmpty()) {
+        for (const auto& c : m_cmds) {
+            if (c == cmd) return;
+        }
+        m_cmds.push_back(cmd);
     }
 }
 
 void FuncItem::removeCmd(int index)
 {
-    if (index >= 0 && index < cmds.size()) {
-        cmds.removeAt(index);
-    }
-}
-
-QJsonObject FuncItem::toJson() const
-{
-    QJsonObject obj;
-    obj["name"] = name;
-    obj["iconPath"] = iconPath;
-    
-    QJsonArray cmdsArray;
-    for (const QString &cmd : cmds) {
-        cmdsArray.append(cmd);
-    }
-    obj["cmds"] = cmdsArray;
-    
-    return obj;
-}
-
-void FuncItem::fromJson(const QJsonObject &obj)
-{
-    name = obj["name"].toString();
-    iconPath = obj["iconPath"].toString();
-    
-    cmds.clear();
-    QJsonArray cmdsArray = obj["cmds"].toArray();
-    for (const QJsonValue &value : cmdsArray) {
-        cmds.append(value.toString());
+    if (index >= 0 && index < static_cast<int>(m_cmds.size())) {
+        m_cmds.erase(m_cmds.begin() + index);
     }
 }
 
 YAML::Node FuncItem::toYaml() const
 {
     YAML::Node node;
-    node["name"] = name.toStdString();
-    node["iconPath"] = iconPath.toStdString();
-
-    for (const QString &cmd : cmds) {
-        node["cmds"].push_back(cmd.toStdString());
+    node["name"] = m_name.ToStdString();
+    node["iconPath"] = m_iconPath.ToStdString();
+    for (const auto& cmd : m_cmds) {
+        node["cmds"].push_back(cmd.ToStdString());
     }
-
     return node;
 }
 
-void FuncItem::fromYaml(const YAML::Node &node)
+void FuncItem::fromYaml(const YAML::Node& node)
 {
-    if (node["name"]) {
-        name = QString::fromStdString(node["name"].as<std::string>());
-    }
-    if (node["iconPath"]) {
-        iconPath = QString::fromStdString(node["iconPath"].as<std::string>());
-    }
+    if (node["name"])
+        m_name = wxString::FromUTF8(node["name"].as<std::string>().c_str());
+    if (node["iconPath"])
+        m_iconPath = wxString::FromUTF8(node["iconPath"].as<std::string>().c_str());
 
-    cmds.clear();
+    m_cmds.clear();
     if (node["cmds"] && node["cmds"].IsSequence()) {
-        for (const auto &cmd : node["cmds"]) {
-            cmds.append(QString::fromStdString(cmd.as<std::string>()));
+        for (const auto& cmd : node["cmds"]) {
+            m_cmds.push_back(wxString::FromUTF8(cmd.as<std::string>().c_str()));
         }
     }
 }
