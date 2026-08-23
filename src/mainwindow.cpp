@@ -201,6 +201,7 @@ void MainWindow::UpdateBreadcrumb()
 
     if (m_navStack) {
         for (MainWindow* w : *m_navStack) {
+            if (w == root) continue; // root is already the first segment
             wxString name = w->m_currentItem && !w->m_currentItem->getName().IsEmpty()
                 ? w->m_currentItem->getName() : wxString(_("Home"));
             path += wxT(" \u25B8 ") + name;
@@ -330,7 +331,12 @@ void MainWindow::OnItemClicked(int index)
         if (m_currentItem->getSubApps().end() !=
             std::find_if(m_currentItem->getSubApps().begin(), m_currentItem->getSubApps().end(),
                 [appItem](const std::shared_ptr<AppItem>& p) { return p.get() == appItem; })) {
-            if (m_navStack && (m_navStack->empty() || m_navStack->back() != this)) {
+            // Root window is the base of the breadcrumb and is restored via
+            // m_rootWindow; only intermediate windows go on the nav stack so
+            // "back" returns to the previous level (not all the way to root).
+            MainWindow* root = m_rootWindow ? m_rootWindow : this;
+            if (m_navStack && this != root &&
+                (m_navStack->empty() || m_navStack->back() != this)) {
                 m_navStack->push_back(this);
             }
             MainWindow* newWindow = new MainWindow(appItem, this);
@@ -483,13 +489,14 @@ void MainWindow::OnLanguageChanged(wxCommandEvent&)
 void MainWindow::OnBackClicked(wxCommandEvent&)
 {
     m_navigatingBack = true;
-    // Pop the current window's parent from the stack
+    // The nav stack holds the ancestor chain; its top is this window's
+    // parent (the previous level). Show it, then pop it.
+    MainWindow* prev = nullptr;
     if (m_navStack && !m_navStack->empty()) {
+        prev = m_navStack->back();
         m_navStack->pop_back();
     }
-    // Show previous window or root
-    if (m_navStack && !m_navStack->empty()) {
-        MainWindow* prev = m_navStack->back();
+    if (prev) {
         prev->RefreshIconList();
         prev->UpdateBreadcrumb();
         prev->Show();
@@ -536,9 +543,11 @@ void MainWindow::OnClose(wxCloseEvent&)
                 std::remove(m_navStack->begin(), m_navStack->end(), this),
                 m_navStack->end());
         }
-        // Show previous window or root
+        // Show the previous level (top of stack) and pop it, keeping the
+        // invariant that a displayed window is never on the stack.
         if (m_navStack && !m_navStack->empty()) {
             MainWindow* prev = m_navStack->back();
+            m_navStack->pop_back();
             prev->RefreshIconList();
             prev->UpdateBreadcrumb();
             prev->Show();
