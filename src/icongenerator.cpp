@@ -42,15 +42,13 @@ wxColour IconGenerator::getColorForName(const wxString& name)
     return getDefaultColors().at(colorIndex);
 }
 
-wxBitmap IconGenerator::generateDefaultIcon(const wxString& name, int size)
+wxBitmap IconGenerator::generateDefaultIcon(const wxString& /*name*/, int size)
 {
-    if (name.IsEmpty()) {
-        return generateIcon(wxT("?"), wxColour(128, 128, 128), *wxWHITE, size);
-    }
-
-    wxString firstChar = name.Left(1).Upper();
-    wxColour bgColor = getColorForName(name);
-    return generateIcon(firstChar, bgColor, *wxWHITE, size);
+    // A single, fixed placeholder icon for every item without a custom icon.
+    // We intentionally do NOT render the item's first letter / a per-name colour.
+    wxColour bg(108, 118, 134);  // neutral slate
+    wxColour fg(255, 255, 255);
+    return drawDefaultIcon(bg, fg, size);
 }
 
 wxBitmap IconGenerator::generateIcon(const wxString& text, const wxColour& backgroundColor,
@@ -105,6 +103,42 @@ wxBitmap IconGenerator::drawCircularIcon(const wxString& text, const wxColour& b
             double tx = (size - tw) / 2.0;
             double ty = (size - th) / 2.0;
             gc->DrawText(text, tx, ty);
+
+            delete gc;
+        }
+    }
+    bmp.SetMask(new wxMask(bmp, wxTransparentColour));
+    return bmp;
+}
+
+wxBitmap IconGenerator::drawDefaultIcon(const wxColour& backgroundColor,
+                                         const wxColour& foreground, int size)
+{
+    wxBitmap bmp(size, size, 32);
+    {
+        wxMemoryDC dc(bmp);
+        dc.SetBackground(wxBrush(wxTransparentColour));
+        dc.Clear();
+
+        wxGraphicsContext* gc = wxGraphicsContext::Create(dc);
+        if (gc) {
+            // Flat circular background (no gradient) so the rim is never a
+            // dark halo regardless of the underlying gradient direction.
+            gc->SetBrush(gc->CreateBrush(wxBrush(backgroundColor)));
+            gc->SetPen(*wxTRANSPARENT_PEN);
+            gc->DrawEllipse(2, 2, size - 4, size - 4);
+
+            // Central rounded-square app glyph
+            double s = size * 0.44;
+            double gx = (size - s) / 2.0;
+            double gy = (size - s) / 2.0;
+            gc->SetBrush(gc->CreateBrush(wxBrush(foreground)));
+            gc->DrawRoundedRectangle(gx, gy, s, s, size * 0.10);
+
+            // Inner dot in the background colour for a subtle "app" mark
+            double d = s * 0.34;
+            gc->SetBrush(gc->CreateBrush(wxBrush(backgroundColor)));
+            gc->DrawEllipse(size / 2.0 - d / 2.0, size / 2.0 - d / 2.0, d, d);
 
             delete gc;
         }

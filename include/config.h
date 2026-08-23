@@ -8,7 +8,7 @@ namespace AppConfig {
     inline const wxChar* APP_DISPLAY_NAME = wxT("WiseExec");
     inline const wxChar* APP_VERSION = wxT("2.0.0");
     inline const wxChar* APP_AUTHOR = wxT("Jianyin");
-    inline const wxChar* APP_COPYRIGHT = wxT("Copyright (C) 2024 All Rights Reserved.");
+    inline const wxChar* APP_COPYRIGHT = wxT("Copyright (C) 2026 All Rights Reserved.");
     inline const wxChar* APP_DESCRIPTION = wxT("A simple app launcher tool");
 
     inline const wxChar* CONFIG_FILE_PATH = wxT("./config.json");

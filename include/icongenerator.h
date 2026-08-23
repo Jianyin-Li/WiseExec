@@ -18,6 +18,8 @@ public:
 private:
     static wxBitmap drawCircularIcon(const wxString& text, const wxColour& backgroundColor,
                                       const wxColour& textColor, int size);
+    static wxBitmap drawDefaultIcon(const wxColour& backgroundColor,
+                                    const wxColour& foreground, int size);
 };
 
 #endif // ICONGENERATOR_H

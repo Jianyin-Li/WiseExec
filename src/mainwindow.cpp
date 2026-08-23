@@ -12,6 +12,9 @@
 #include <wx/mimetype.h>
 #include <wx/url.h>
 #include <wx/fs_arc.h>
+#ifdef __WXMSW__
+#include <windows.h>
+#endif
 #include <algorithm>
 #include <yaml-cpp/yaml.h>
 
@@ -22,7 +25,9 @@ wxBEGIN_EVENT_TABLE(MainWindow, wxFrame)
     EVT_MENU(MainWindow::ID_ADD_APP, MainWindow::OnAddApp)
     EVT_MENU(MainWindow::ID_ADD_FUNC, MainWindow::OnAddFunc)
     EVT_MENU(MainWindow::ID_OPEN_CONFIG, MainWindow::OnOpenConfig)
-    EVT_MENU(MainWindow::ID_TOGGLE_DARK, MainWindow::OnToggleDarkMode)
+    EVT_MENU(MainWindow::ID_THEME_AUTO, MainWindow::OnThemeChanged)
+    EVT_MENU(MainWindow::ID_THEME_LIGHT, MainWindow::OnThemeChanged)
+    EVT_MENU(MainWindow::ID_THEME_DARK, MainWindow::OnThemeChanged)
     EVT_CHOICE(MainWindow::ID_LANG_CHOICE, MainWindow::OnLanguageChanged)
     EVT_BUTTON(MainWindow::ID_BACK, MainWindow::OnBackClicked)
     EVT_CLOSE(MainWindow::OnClose)
@@ -32,6 +37,7 @@ MainWindow::MainWindow(AppItem* initialItem, MainWindow* parentWin)
     : wxFrame(nullptr, wxID_ANY, wxT("WiseExec"), wxDefaultPosition, wxSize(800, 600))
     , m_gridPanel(nullptr)
     , m_headerBar(nullptr)
+    , m_headerDivider(nullptr)
     , m_titleLabel(nullptr)
     , m_backBtn(nullptr)
     , m_langChoice(nullptr)
@@ -51,6 +57,7 @@ MainWindow::MainWindow(AppItem* initialItem, MainWindow* parentWin)
         m_navStack = m_rootWindow->m_navStack;
         m_rootItem = parentWin->m_rootItem;
         m_savedLanguage = parentWin->m_savedLanguage;
+        m_themeMode = parentWin->m_themeMode;
         m_darkMode = parentWin->m_darkMode;
     } else {
         m_rootWindow = nullptr;
@@ -88,13 +95,18 @@ MainWindow::MainWindow(AppItem* initialItem, MainWindow* parentWin)
 
     // Status bar
     m_statusBar = CreateStatusBar(1);
+    UpdateHeaderStyle(); // re-apply theme now that the status bar exists
 
     // Context menu
     SetupContextMenu();
 
+    // Keep "follow system" up to date when the OS theme changes
+    Bind(wxEVT_SYS_COLOUR_CHANGED, &MainWindow::OnSystemThemeChanged, this);
+
     // Update UI
     RefreshIconList();
     UpdateBreadcrumb();
+    SyncThemeMenu();
 
     Centre();
 }
@@ -124,7 +136,14 @@ void MainWindow::SetupMenuBar()
     m_newMenu->Append(ID_ADD_FUNC, _("Function"));
     m_fileMenu->Append(wxID_ANY, _("New"), m_newMenu);
     m_fileMenu->Append(ID_OPEN_CONFIG, _("Open config"));
-    m_fileMenu->AppendCheckItem(ID_TOGGLE_DARK, _("Dark Mode"));
+
+    // Theme: follow system, or force light / dark
+    m_themeMenu = new wxMenu();
+    m_themeMenu->AppendRadioItem(ID_THEME_AUTO, _("Follow System"));
+    m_themeMenu->AppendRadioItem(ID_THEME_LIGHT, _("Light"));
+    m_themeMenu->AppendRadioItem(ID_THEME_DARK, _("Dark"));
+    m_fileMenu->Append(wxID_ANY, _("Theme"), m_themeMenu);
+
     m_fileMenu->AppendSeparator();
     m_fileMenu->Append(ID_EXIT, _("Exit"));
 
@@ -157,14 +176,29 @@ void MainWindow::SetupHeaderBar(wxWindow* parent, wxBoxSizer* parentSizer)
     m_backBtn = new wxButton(m_headerBar, ID_BACK, wxT("\u2190"),
                              wxDefaultPosition, wxSize(36, 36), wxBORDER_NONE | wxBU_EXACTFIT);
     m_backBtn->SetFont(wxFont(16, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL));
-    m_backBtn->SetBackgroundColour(wxTransparentColour);
+
+    // Hover feedback. The default background is matched to the header colour
+    // (set in UpdateHeaderStyle) so the button blends in. We always use a
+    // solid colour, never wxTransparentColour — on wxMSW a transparent
+    // wxButton paints as a black box.
+    m_backBtn->Bind(wxEVT_ENTER_WINDOW, [this](wxMouseEvent&) {
+        m_backBtn->SetBackgroundColour(m_darkMode ? wxColour(0x25, 0x34, 0x4c)
+                                                  : wxColour(0x36, 0x83, 0xf2));
+        m_backBtn->Refresh();
+    });
+    m_backBtn->Bind(wxEVT_LEAVE_WINDOW, [this](wxMouseEvent&) {
+        m_backBtn->SetBackgroundColour(m_headerBar->GetBackgroundColour());
+        m_backBtn->Refresh();
+    });
+
     headerSizer->Add(m_backBtn, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, FromDIP(8));
     headerSizer->Hide(m_backBtn); // Hidden initially, shown by UpdateBreadcrumb
 
-    // Title
+    // Title (breadcrumb) - slightly larger and bolder
     m_titleLabel = new wxStaticText(m_headerBar, wxID_ANY, wxEmptyString);
-    m_titleLabel->SetFont(headerFont);
-    headerSizer->Add(m_titleLabel, 1, wxALIGN_CENTER_VERTICAL | wxLEFT | wxRIGHT, FromDIP(8));
+    m_titleLabel->SetFont(wxFont(wxSize(0, 14), wxFONTFAMILY_DEFAULT,
+                                 wxFONTSTYLE_NORMAL, wxFONTWEIGHT_BOLD));
+    headerSizer->Add(m_titleLabel, 1, wxALIGN_CENTER_VERTICAL | wxLEFT | wxRIGHT, FromDIP(10));
 
     // Language choice
     m_langLabel = new wxStaticText(m_headerBar, wxID_ANY, _("Language:"));
@@ -184,6 +218,11 @@ void MainWindow::SetupHeaderBar(wxWindow* parent, wxBoxSizer* parentSizer)
 
     m_headerBar->SetSizer(headerSizer);
     parentSizer->Add(m_headerBar, 0, wxEXPAND);
+
+    // Thin divider under the header for visual separation
+    m_headerDivider = new wxPanel(parent);
+    m_headerDivider->SetMinSize(wxSize(-1, FromDIP(1)));
+    parentSizer->Add(m_headerDivider, 0, wxEXPAND);
 
     UpdateHeaderStyle();
 }
@@ -236,17 +275,34 @@ void MainWindow::UpdateBreadcrumb()
 void MainWindow::UpdateHeaderStyle()
 {
     if (m_darkMode) {
-        m_headerBar->SetBackgroundColour(wxColour(0x0d, 0x47, 0xa1));
-        m_titleLabel->SetForegroundColour(wxColour(0xe0, 0xe0, 0xe0));
-        m_langLabel->SetForegroundColour(wxColour(0xe0, 0xe0, 0xe0));
-        m_backBtn->SetForegroundColour(wxColour(0xe0, 0xe0, 0xe0));
+        // Deep navy header that blends with the dark content area to avoid
+        // the "bright blue vs dark body" clash.
+        m_headerBar->SetBackgroundColour(wxColour(0x16, 0x23, 0x3a));
+        m_titleLabel->SetForegroundColour(wxColour(0xe8, 0xec, 0xf1));
+        m_langLabel->SetForegroundColour(wxColour(0xb3, 0xbd, 0xc9));
+        m_backBtn->SetForegroundColour(wxColour(0xe8, 0xec, 0xf1));
+        m_headerDivider->SetBackgroundColour(wxColour(0x0f, 0x11, 0x17));
+        if (m_statusBar) {
+            m_statusBar->SetBackgroundColour(wxColour(0x14, 0x17, 0x1c));
+            m_statusBar->SetForegroundColour(wxColour(0x9a, 0xa4, 0xb0));
+        }
     } else {
-        m_headerBar->SetBackgroundColour(wxColour(0x1a, 0x73, 0xe8));
+        m_headerBar->SetBackgroundColour(wxColour(0x1a, 0x6f, 0xe0));
         m_titleLabel->SetForegroundColour(*wxWHITE);
-        m_langLabel->SetForegroundColour(*wxWHITE);
+        m_langLabel->SetForegroundColour(wxColour(0xe8, 0xee, 0xf6));
         m_backBtn->SetForegroundColour(*wxWHITE);
+        m_headerDivider->SetBackgroundColour(wxColour(0xd0, 0xd5, 0xdb));
+        if (m_statusBar) {
+            m_statusBar->SetBackgroundColour(wxColour(0xf0, 0xf2, 0xf5));
+            m_statusBar->SetForegroundColour(wxColour(0x3c, 0x40, 0x43));
+        }
+    }
+    if (m_backBtn) {
+        m_backBtn->SetBackgroundColour(m_headerBar->GetBackgroundColour());
     }
     m_headerBar->Refresh();
+    if (m_headerDivider) m_headerDivider->Refresh();
+    if (m_statusBar) m_statusBar->Refresh();
 }
 
 void MainWindow::SetupContextMenu()
@@ -459,13 +515,64 @@ void MainWindow::OnOpenConfig(wxCommandEvent&)
     }
 }
 
-void MainWindow::OnToggleDarkMode(wxCommandEvent& event)
+void MainWindow::OnThemeChanged(wxCommandEvent& event)
 {
-    m_darkMode = event.IsChecked();
-    m_gridPanel->setDarkMode(m_darkMode);
-    UpdateHeaderStyle();
-    RefreshIconList();
+    switch (event.GetId()) {
+        case ID_THEME_AUTO:  m_themeMode = wxT("auto");  break;
+        case ID_THEME_LIGHT: m_themeMode = wxT("light"); break;
+        case ID_THEME_DARK:  m_themeMode = wxT("dark");  break;
+        default: return;
+    }
+    ApplyTheme();
     SaveConfig();
+}
+
+// Resolve the effective dark flag from the chosen mode and apply everywhere.
+void MainWindow::ApplyTheme()
+{
+    if (m_themeMode == wxT("auto"))
+        m_darkMode = IsSystemDark();
+    else
+        m_darkMode = (m_themeMode == wxT("dark"));
+
+    if (m_gridPanel) {
+        m_gridPanel->setDarkMode(m_darkMode);
+        RefreshIconList();
+    }
+    UpdateHeaderStyle();
+    SyncThemeMenu();
+}
+
+void MainWindow::SyncThemeMenu()
+{
+    if (!m_themeMenu) return;
+    int id = ID_THEME_AUTO;
+    if (m_themeMode == wxT("light"))      id = ID_THEME_LIGHT;
+    else if (m_themeMode == wxT("dark"))  id = ID_THEME_DARK;
+    m_themeMenu->Check(id, true);
+}
+
+bool MainWindow::IsSystemDark()
+{
+#ifdef __WXMSW__
+    // Windows 10/11: AppsUseLightTheme = 0 means dark, 1 means light
+    DWORD value = 1, size = sizeof(value);
+    LONG r = RegGetValueW(
+        HKEY_CURRENT_USER,
+        L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
+        L"AppsUseLightTheme",
+        RRF_RT_REG_DWORD, nullptr, &value, &size);
+    if (r != ERROR_SUCCESS) value = 1;
+    return (value == 0);
+#else
+    return false;
+#endif
+}
+
+void MainWindow::OnSystemThemeChanged(wxSysColourChangedEvent&)
+{
+    if (m_themeMode == wxT("auto"))
+        ApplyTheme();
 }
 
 void MainWindow::OnLanguageChanged(wxCommandEvent&)
@@ -574,7 +681,13 @@ void MainWindow::LoadConfig()
                 }
                 if (rootNode["theme"]) {
                     wxString theme = wxString::FromUTF8(rootNode["theme"].as<std::string>().c_str());
-                    m_darkMode = (theme == wxT("dark"));
+                    if (theme == wxT("light") || theme == wxT("dark") || theme == wxT("auto"))
+                        m_themeMode = theme;
+                    else
+                        m_themeMode = wxT("auto");
+                    m_darkMode = (m_themeMode == wxT("auto"))
+                                     ? IsSystemDark()
+                                     : (m_themeMode == wxT("dark"));
                 }
                 m_rootItem = new AppItem();
                 m_rootItem->fromYaml(rootNode);
@@ -596,7 +709,7 @@ void MainWindow::SaveConfig()
     if (m_langChoice) {
         rootNode["language"] = (m_langChoice->GetSelection() == 1) ? "zh_CN" : "en";
     }
-    rootNode["theme"] = m_darkMode ? "dark" : "light";
+    rootNode["theme"] = m_themeMode.ToStdString();
 
     YAML::Emitter emitter;
     emitter.SetIndent(4);

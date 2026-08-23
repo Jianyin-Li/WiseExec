@@ -35,6 +35,8 @@ private:
     void OnPaint(wxPaintEvent& event);
     void OnMouseMove(wxMouseEvent& event);
     void OnLeftDown(wxMouseEvent& event);
+    void OnLeftUp(wxMouseEvent& event);
+    void OnCaptureLost(wxMouseCaptureLostEvent& event);
     void OnRightDown(wxMouseEvent& event);
     void OnSize(wxSizeEvent& event);
     void OnMouseWheel(wxMouseEvent& event);
@@ -47,9 +49,10 @@ private:
     // High-quality rendering via wxGraphicsContext
     void DrawCardGC(wxGraphicsContext* gc, const wxRect& rect,
                     const wxBitmap& icon, const wxString& text,
-                    bool hovered, bool selected, bool isAddButton);
+                    bool hovered, bool pressed, bool selected, bool isAddButton);
     void DrawIconCircular(wxGraphicsContext* gc, const wxBitmap& icon,
                           int cx, int cy, int radius);
+    void DrawScrollbar(wxGraphicsContext* gc, const wxSize& sz);
 
     wxDECLARE_EVENT_TABLE();
 
@@ -57,6 +60,7 @@ private:
     std::vector<wxRect> m_itemRects;
     int m_hoveredIndex = -1;
     int m_selectedIndex = -1;
+    int m_pressedIndex = -1;
     bool m_darkMode = false;
     int m_scrollY = 0;
     int m_contentHeight = 0;
@@ -68,6 +72,7 @@ private:
     int m_iconSize;
     int m_cardRadius;
     int m_headerH;
+    int m_scrollBarW;
 };
 
 #endif // ICONGRIDPANEL_H

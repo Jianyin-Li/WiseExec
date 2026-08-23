@@ -27,7 +27,8 @@ private:
     void OnAddApp(wxCommandEvent& event);
     void OnAddFunc(wxCommandEvent& event);
     void OnOpenConfig(wxCommandEvent& event);
-    void OnToggleDarkMode(wxCommandEvent& event);
+    void OnThemeChanged(wxCommandEvent& event);
+    void OnSystemThemeChanged(wxSysColourChangedEvent& event);
     void OnLanguageChanged(wxCommandEvent& event);
     void OnBackClicked(wxCommandEvent& event);
     void OnItemClicked(int index);
@@ -43,12 +44,18 @@ private:
     void UpdateHeaderStyle();
     void UpdateBreadcrumb();
 
+    // Theme
+    void ApplyTheme();
+    void SyncThemeMenu();
+    static bool IsSystemDark();
+
     void EditItem(int index);
     void DeleteItem(int index);
 
     // Data
     IconGridPanel* m_gridPanel;
     wxPanel* m_headerBar;
+    wxPanel* m_headerDivider;
     wxStaticText* m_titleLabel;
     wxButton* m_backBtn;
     wxChoice* m_langChoice;
@@ -57,7 +64,8 @@ private:
 
     AppItem* m_currentItem;
     AppItem* m_rootItem;
-    bool m_darkMode = false;
+    bool m_darkMode = false;        // resolved dark state actually applied
+    wxString m_themeMode = wxT("auto"); // "auto" | "light" | "dark"
     wxString m_savedLanguage;
 
     // Navigation
@@ -68,6 +76,7 @@ private:
     // Menu
     wxMenu* m_fileMenu;
     wxMenu* m_newMenu;
+    wxMenu* m_themeMenu;
     wxMenu* m_aboutMenu;
     wxMenuBar* m_menuBar;
 
@@ -82,7 +91,9 @@ private:
         ID_ADD_APP,
         ID_ADD_FUNC,
         ID_OPEN_CONFIG,
-        ID_TOGGLE_DARK,
+        ID_THEME_AUTO,
+        ID_THEME_LIGHT,
+        ID_THEME_DARK,
         ID_LANG_CHOICE,
         ID_BACK,
         ID_EDIT,
