@@ -4,14 +4,6 @@ on:
   push:
     branches: [ main, master ]
     tags: [ 'v*' ]
-  workflow_dispatch:
-    # 允许手动触发
-    inputs:
-      enable_nsis:
-        description: "Enable NSIS installer generation (Windows only)"
-        type: boolean
-        default: false
-        required: false
 
 env:
   BUILD_TYPE: Release
@@ -45,7 +37,6 @@ jobs:
             --std=c++17 \
             --platform=unix64 \
             -I include \
-            -I /usr/include/x86_64-linux-gnu/qt6 \
             src/ || echo "cppcheck completed with warnings"
 
       - name: Upload code quality reports
@@ -60,7 +51,6 @@ jobs:
   build-windows-mingw:
     name: Build Windows (MinGW)
     runs-on: windows-latest
-    continue-on-error: true
     needs: [ code-quality-checks ]
     steps:
       - name: Checkout repository
@@ -80,17 +70,114 @@ jobs:
           choco install ninja -y
           choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System' -y
 
-      - name: Install Qt
-        uses: jurplel/install-qt-action@v4
+      - name: Resolve wxWidgets version
+        shell: pwsh
+        run: |
+          # 用远程 tag 的 commit hash 作为 cache key：wx 更新后 key 自动变化，
+          # 旧缓存失效 → 重新构建并保存新缓存（无需先 clone 即可取 hash）。
+          $hash = (git ls-remote https://github.com/wxWidgets/wxWidgets.git "refs/tags/v3.3.0").Split("`t")[0]
+          "wx_commit=$hash" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8NoBOM
+
+      - name: Cache wxWidgets (source + build)
+        id: cache-wx
+        uses: actions/cache@v4
         with:
-          version: '6.5.3'
-          host: 'windows'
-          target: 'desktop'
-          arch: 'win64_mingw'
+          # 缓存整个 wxWidgets 源码树 + 构建产物，保证恢复后源码与产物时间戳
+          # 相对一致，CMake 判定已是最新而不全量重编译。
+          path: C:\wxWidgets
+          key: wxwidgets-${{ env.wx_commit }}-mingw-${{ runner.os }}-${{ runner.arch }}
+
+      - name: Clone wxWidgets source
+        shell: pwsh
+        run: |
+          if (-not (Test-Path 'C:\wxWidgets\include\wx\wx.h')) {
+            git clone --depth 1 --branch v3.3.0 --recurse-submodules https://github.com/wxWidgets/wxWidgets.git C:\wxWidgets
+          } else {
+            Write-Host "wxWidgets source already present (from cache), skipping clone"
+          }
+
+      - name: Build wxWidgets (MinGW static)
+        shell: pwsh
+        run: |
+          cd C:\wxWidgets
+          cmake -B build_mingw -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release `
+            -DwxBUILD_SHARED=OFF -DwxBUILD_SAMPLES=OFF -DwxBUILD_DEMOS=OFF -DwxBUILD_TESTS=OFF
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cmake --build build_mingw -- -j4
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          # CMake 构建的 wxWidgets 使用 GNU 'lib' 前缀命名（libwxmsw33u_core.a），
+          # 而本项目 CMakeLists.txt 用不带前缀的精确文件名（:wxmsw33u_core.a）。
+          # 另外 webp 相关库（webp/webpdemux/sharpyuv）作为 ExternalProject 构建
+          # 在 libs\webp-build 下，不在 lib\gcc_x64_lib。统一把需要的库复制为
+          # 不带前缀名并汇总到 gcc_x64_lib。
+          # 使用绝对路径：Get-ChildItem 返回的 FullName 是绝对路径，若 $libDir
+          # 用相对路径，Join-Path 生成的 $target 与之不同，无法拦截"复制到自身"。
+          $libDir = 'C:\wxWidgets\build_mingw\lib\gcc_x64_lib'
+          # 1) gcc_x64_lib 下 lib 前缀库 → 无前缀
+          Get-ChildItem $libDir -Filter 'libwx*.a' | ForEach-Object {
+            Copy-Item $_.FullName (Join-Path $libDir ($_.Name -replace '^lib','')) -Force
+          }
+          # 2) 递归收集 webp 等 ExternalProject 构建的库。
+          #    跳过与目标相同的文件：cache 命中后 gcc_x64_lib 里可能已存在
+          #    无前缀副本，直接复制会报 "Cannot overwrite ... with itself"。
+          Get-ChildItem build_mingw -Recurse -Filter '*.a' -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -match '^(lib)?wx(webp|webpdemux|sharpyuv)\.a$' } |
+            ForEach-Object {
+              $target = Join-Path $libDir ($_.Name -replace '^lib','')
+              if ($_.FullName -ne $target) {
+                Copy-Item $_.FullName $target -Force
+              }
+            }
+          Get-ChildItem $libDir -Filter "wx*.a" | Select-Object Name
+
+      - name: Resolve yaml-cpp version
+        shell: pwsh
+        run: |
+          $hash = (git ls-remote https://github.com/jbeder/yaml-cpp.git "refs/tags/0.8.0").Split("`t")[0]
+          "yaml_commit=$hash" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8NoBOM
+
+      - name: Cache yaml-cpp (source + build)
+        id: cache-yaml
+        uses: actions/cache@v4
+        with:
+          path: |
+            C:\yaml-cpp
+            C:\yaml-cpp-install
+          key: yaml-cpp-${{ env.yaml_commit }}-mingw-${{ runner.os }}-${{ runner.arch }}
+
+      - name: Clone yaml-cpp source
+        shell: pwsh
+        run: |
+          if (-not (Test-Path 'C:\yaml-cpp\CMakeLists.txt')) {
+            git clone --depth 1 --branch 0.8.0 https://github.com/jbeder/yaml-cpp.git C:\yaml-cpp
+          } else {
+            Write-Host "yaml-cpp source already present (from cache), skipping clone"
+          }
+
+      - name: Build yaml-cpp (static)
+        shell: pwsh
+        run: |
+          cd C:\yaml-cpp
+          # yaml-cpp 0.8.0 declares cmake_minimum_required(3.4); CMake 4.x dropped
+          # support for CMake < 3.5, so bump the requirement before configuring.
+          (Get-Content CMakeLists.txt -Raw) -replace 'cmake_minimum_required\(VERSION 3\.4\)','cmake_minimum_required(VERSION 3.5)' | Set-Content CMakeLists.txt
+          # yaml-cpp 0.8.0's emitterutils.cpp uses uint16_t/uint32_t without
+          # including <cstdint>; newer GCC (>=13) no longer pulls it in transitively.
+          $p = 'C:\yaml-cpp\src\emitterutils.cpp'
+          (Get-Content $p -Raw) -replace '#include <algorithm>', "#include <algorithm>`n#include <cstdint>" | Set-Content $p
+          cmake -B build -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release `
+            -DYAML_BUILD_SHARED_LIBS=OFF -DYAML_CPP_BUILD_TESTS=OFF -DYAML_CPP_BUILD_TOOLS=OFF `
+            -DCMAKE_INSTALL_PREFIX=C:\yaml-cpp-install
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cmake --build build -- -j4
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cmake --install build
 
       - name: Configure CMake for MinGW
         run: |
-          cmake -B build/mingw -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release
+          cmake -B build/mingw -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release `
+            -DWX_ROOT=C:/wxWidgets `
+            -Dyaml-cpp_DIR=C:/yaml-cpp-install/lib/cmake/yaml-cpp
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Build with MinGW
@@ -120,7 +207,6 @@ jobs:
   build-linux-gcc:
     name: Build Linux (GCC)
     runs-on: ubuntu-latest
-    continue-on-error: true
     needs: [ code-quality-checks ]
 
     steps:
@@ -134,10 +220,9 @@ jobs:
             build-essential \
             cmake \
             ninja-build \
-            qt6-base-dev \
-            qt6-tools-dev \
-            qt6-tools-dev-tools \
-            libqt6widgets6
+            libwxgtk3.2-dev \
+            wx-common \
+            libyaml-cpp-dev
 
       - name: Configure CMake
         run: |
@@ -167,7 +252,6 @@ jobs:
   build-linux-arm64:
     name: Build Linux ARM64 (GCC)
     runs-on: ubuntu-24.04-arm
-    continue-on-error: true
     needs: [ code-quality-checks ]
 
     steps:
@@ -181,10 +265,9 @@ jobs:
             build-essential \
             cmake \
             ninja-build \
-            qt6-base-dev \
-            qt6-tools-dev \
-            qt6-tools-dev-tools \
-            libqt6widgets6
+            libwxgtk3.2-dev \
+            wx-common \
+            libyaml-cpp-dev
 
       - name: Configure CMake
         run: |
@@ -214,7 +297,6 @@ jobs:
   build-macos-clang:
     name: Build macOS (Clang)
     runs-on: macos-latest
-    continue-on-error: true
     needs: [ code-quality-checks ]
 
     steps:
@@ -223,13 +305,11 @@ jobs:
 
       - name: Install dependencies
         run: |
-          brew install cmake ninja qt@6
+          brew install cmake ninja wxwidgets yaml-cpp
 
       - name: Configure CMake
         run: |
-          export Qt6_DIR="$(brew --prefix qt@6)/lib/cmake/Qt6"
-          echo "Qt6_DIR=$Qt6_DIR"
-          cmake -B build/macos -G Ninja -DCMAKE_BUILD_TYPE=Release -DQt6_DIR="$Qt6_DIR" -DCMAKE_INSTALL_PREFIX=/usr/local
+          cmake -B build/macos -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local
 
       - name: Build
         run: |
@@ -299,6 +379,7 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       [
+        code-quality-checks,
         build-windows-mingw,
         build-linux-gcc,
         build-linux-arm64,
