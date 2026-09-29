@@ -593,10 +593,18 @@ void MainWindow::ApplyTheme()
 // without this a dark app still gets a white title bar.
 void MainWindow::ApplyNativeAppearance()
 {
+    // wxApp::SetAppearance()/wxApp::Appearance were introduced in wxWidgets
+    // 3.3. The Linux CI builds against the distribution wxWidgets 3.2
+    // (libwxgtk3.2-dev), where the enum and the method do not exist at all,
+    // so the call has to be compiled out there. Platforms other than MSW
+    // follow the system appearance automatically, which is what the Linux
+    // and macOS builds would get from the call anyway.
+#if wxCHECK_VERSION(3, 3, 0)
     if (wxApp* app = wxTheApp) {
         app->SetAppearance(m_darkMode ? wxApp::Appearance::Dark
                                        : wxApp::Appearance::Light);
     }
+#endif
     UiTraits::ApplyDarkFrame(this, m_darkMode);
 }
 

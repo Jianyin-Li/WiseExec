@@ -108,7 +108,7 @@ wxBitmap ExtractSideCar(const wxString& path, int size)
     wxFileName fn(path);
     for (const wxChar* ext : kExts) {
         wxFileName candidate(fn.GetPath(wxPATH_UNIX), fn.GetName() + ext);
-        if (wxFileName::FileExists(candidate)) {
+        if (candidate.FileExists()) {
             wxImage img(candidate.GetFullPath());
             if (img.IsOk())
                 return FitToBox(wxBitmap(img), size);
@@ -136,8 +136,11 @@ wxBitmap ExtractDesktopEntry(const wxString& path, int size)
 
     for (const wxChar* dir : kDirs) {
         wxFileName entry(dir, name + wxT(".desktop"));
-        entry.Normalize(wxPATH_NORM_ENV | wxPATH_NORM_DOTS);
-        if (!wxFileName::FileExists(entry))
+        // wxPATH_NORM_ENV_VARS is the real name (wxPATH_NORM_ENV does not
+        // exist) and wxPATH_NORM_TILDE is required to expand the leading
+        // "~" of the per-user applications directory.
+        entry.Normalize(wxPATH_NORM_ENV_VARS | wxPATH_NORM_TILDE | wxPATH_NORM_DOTS);
+        if (!entry.FileExists())
             continue;
 
         wxFFile file(entry.GetFullPath(), wxT("rb"));
@@ -153,7 +156,7 @@ wxBitmap ExtractDesktopEntry(const wxString& path, int size)
         content.Replace(wxT("\r\n"), wxT("\n"));
         content.Replace(wxT("\r"), wxT("\n"));
         for (const wxString& raw : wxSplit(content, wxT('\n'))) {
-            const wxString line = raw.Trim(true).Trim(false);
+            const wxString line = Trimmed(raw);
             if (line.IsEmpty() || line[0] == '#')
                 continue;
             if (line[0] == '[') {
@@ -175,8 +178,9 @@ wxBitmap ExtractDesktopEntry(const wxString& path, int size)
             continue;
 
         // An absolute or resolvable path is used directly.
-        if (wxFileName::FileExists(wxFileName(iconValue))) {
-            wxImage img(wxFileName(iconValue).GetFullPath());
+        const wxFileName iconFile(iconValue);
+        if (iconFile.FileExists()) {
+            wxImage img(iconFile.GetFullPath());
             if (img.IsOk())
                 return FitToBox(wxBitmap(img), size);
         }
