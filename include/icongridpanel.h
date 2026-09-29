@@ -50,14 +50,11 @@ private:
     void DrawCardGC(wxGraphicsContext* gc, const wxRect& rect,
                     const wxBitmap& icon, const wxString& text,
                     bool hovered, bool pressed, bool selected, bool isAddButton);
-    void DrawIconCircular(wxGraphicsContext* gc, const wxBitmap& icon,
-                          int cx, int cy, int radius);
     void DrawScrollbar(wxGraphicsContext* gc, const wxSize& sz);
 
     wxDECLARE_EVENT_TABLE();
 
     std::vector<IconGridItem> m_items;
-    std::vector<wxRect> m_itemRects;
     int m_hoveredIndex = -1;
     int m_selectedIndex = -1;
     int m_pressedIndex = -1;
@@ -73,6 +70,7 @@ private:
     int m_cardRadius;
     int m_headerH;
     int m_scrollBarW;
+    int m_pad;           // outer margin around the card grid
 };
 
 #endif // ICONGRIDPANEL_H

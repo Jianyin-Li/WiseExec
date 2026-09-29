@@ -6,17 +6,22 @@
 #include <wx/textctrl.h>
 #include <wx/panel.h>
 #include "appitem.h"
+#include "iconpreviewpanel.h"
+#include "themeddialog.h"
 
-class AppConfigDialog : public wxDialog
+class AppConfigDialog : public ThemedDialog
 {
 public:
-    AppConfigDialog(wxWindow* parent, AppItem* existing = nullptr);
+    // `dark` is the main window's resolved theme, so the dialog matches the
+    // app even when the OS itself is set to the other mode.
+    AppConfigDialog(wxWindow* parent, AppItem* existing = nullptr, bool dark = false);
     ~AppConfigDialog();
 
     std::shared_ptr<AppItem> getResult() const { return m_result; }
 
 private:
     void OnSelectIcon(wxCommandEvent& event);
+    void OnSelectExe(wxCommandEvent& event);
     void OnConfirm(wxCommandEvent& event);
     void OnCancel(wxCommandEvent& event);
     void OnNameChanged(wxCommandEvent& event);
@@ -25,9 +30,9 @@ private:
 
     wxTextCtrl* m_nameEdit;
     wxTextCtrl* m_iconEdit;
-    wxPanel* m_iconPreview;
+    wxTextCtrl* m_exeEdit;
+    IconPreviewPanel* m_iconPreview;
     std::shared_ptr<AppItem> m_result;
-
     wxDECLARE_EVENT_TABLE();
 };
 

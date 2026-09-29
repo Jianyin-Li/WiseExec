@@ -82,6 +82,12 @@ set(HEADERS
     include/appitem.h
     include/funcitem.h
     include/icongenerator.h
+    include/exeiconextractor.h
+    include/uitraits.h
+    include/breadcrumb.h
+    include/themeddialog.h
+    include/iconpreviewpanel.h
+    include/langselector.h
     include/icongridpanel.h
     include/appconfigdialog.h
     include/funcconfigdialog.h
@@ -94,6 +100,11 @@ set(SOURCES
     src/appitem.cpp
     src/funcitem.cpp
     src/icongenerator.cpp
+    src/exeiconextractor.cpp
+    src/uitraits.cpp
+    src/breadcrumb.cpp
+    src/iconpreviewpanel.cpp
+    src/langselector.cpp
     src/icongridpanel.cpp
     src/appconfigdialog.cpp
     src/funcconfigdialog.cpp
@@ -105,6 +116,7 @@ set(RESOURCES)
 if(WIN32)
     list(APPEND RESOURCES
         resources/app_icon.rc
+        resources/version.rc
         resources/WiseExec.manifest.rc
     )
 endif()
@@ -127,7 +139,7 @@ if(wxWidgets_FOUND)
     # 使用系统安装的 wxWidgets（Linux/macOS）
     include(${wxWidgets_USE_FILE})
     target_include_directories(${PROJECT_NAME} PRIVATE ${wxWidgets_INCLUDE_DIRS})
-    target_link_libraries(${PROJECT_NAME} PRIVATE ${wxWidgets_LIBRARIES} yaml-cpp::yaml-cpp)
+    set(WISEEXEC_LINK_LIBS ${wxWidgets_LIBRARIES} yaml-cpp::yaml-cpp)
 else()
     # Windows: 手动 MinGW 静态库配置
     target_include_directories(${PROJECT_NAME} PRIVATE ${WX_INC} ${WX_SETUP_DIR})
@@ -141,7 +153,7 @@ else()
     target_link_directories(${PROJECT_NAME} PRIVATE ${WX_LIB_DIR})
 
     # Use : prefix to specify exact filename (MinGW expects lib prefix, but wx uses plain names)
-    target_link_libraries(${PROJECT_NAME} PRIVATE
+    set(WISEEXEC_LINK_LIBS
         :wxmsw33u_core.a
         :wxmsw33u_adv.a
         :wxbase33u.a
@@ -180,6 +192,8 @@ else()
     )
 endif()
 
+target_link_libraries(${PROJECT_NAME} PRIVATE ${WISEEXEC_LINK_LIBS})
+
 target_compile_options(${PROJECT_NAME} PRIVATE
     -Wall -Wextra
 )
@@ -203,6 +217,44 @@ endif()
 #=============================================================================
 
 option(BUILD_TESTS "Build tests" OFF)
+
+if(BUILD_TESTS)
+    # Standalone check for the exe icon extractor. It lives under build-tools/
+    # because it is a development tool rather than application code; it
+    # compiles the extractor source directly and reuses the application's own
+    # wx link setup.
+    add_executable(icon_extract_test
+        build-tools/icon_extract_test.cpp
+        src/exeiconextractor.cpp
+    )
+    target_include_directories(icon_extract_test PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+    )
+    if(NOT wxWidgets_FOUND)
+        target_include_directories(icon_extract_test PRIVATE ${WX_INC} ${WX_SETUP_DIR})
+        target_compile_definitions(icon_extract_test PRIVATE
+            __WXMSW__
+            _UNICODE UNICODE
+            wxUSE_UNICODE=1
+            _WIN32_WINNT=0x0A00
+            WINVER=0x0A00
+        )
+        target_link_directories(icon_extract_test PRIVATE ${WX_LIB_DIR})
+    endif()
+    target_compile_options(icon_extract_test PRIVATE -Wall -Wextra)
+    target_link_libraries(icon_extract_test PRIVATE ${WISEEXEC_LINK_LIBS})
+    if(WIN32)
+        # The statically linked wxWidgets build here fails to load under the
+        # console subsystem, so the test runs as a GUI binary and reports
+        # through its exit code plus a log file.
+        set_target_properties(icon_extract_test PROPERTIES WIN32_EXECUTABLE TRUE)
+        target_link_options(icon_extract_test PRIVATE
+            -static
+            -static-libgcc
+            -static-libstdc++
+        )
+    endif()
+endif()
 
 #=============================================================================
 # Packaging (CPack)

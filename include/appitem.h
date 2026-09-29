@@ -13,7 +13,8 @@ class AppItem
 {
 public:
     explicit AppItem();
-    explicit AppItem(const wxString& name, const wxString& iconPath);
+    explicit AppItem(const wxString& name, const wxString& iconPath,
+                     const wxString& exePath = wxEmptyString);
     ~AppItem();
 
     wxString getName() const { return m_name; }
@@ -21,6 +22,11 @@ public:
 
     wxString getIconPath() const { return m_iconPath; }
     void setIconPath(const wxString& path) { m_iconPath = path; }
+
+    // Executable this app points at. When set and no explicit icon was
+    // chosen, the icon is extracted from the executable itself.
+    wxString getExePath() const { return m_exePath; }
+    void setExePath(const wxString& path) { m_exePath = path; }
 
     wxBitmap getIcon(int size = 64) const;
 
@@ -38,6 +44,7 @@ public:
 private:
     wxString m_name;
     wxString m_iconPath;
+    wxString m_exePath;
     std::vector<std::shared_ptr<AppItem>> m_subApps;
     std::vector<std::shared_ptr<FuncItem>> m_funcs;
 };

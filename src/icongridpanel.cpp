@@ -1,4 +1,5 @@
 #include "icongridpanel.h"
+#include "uitraits.h"
 #include <wx/dcbuffer.h>
 #include <wx/graphics.h>
 #include <wx/dcmemory.h>
@@ -8,11 +9,28 @@
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-static wxString Ellipsize(const wxString& s, int maxChars)
+// Truncate to fit `maxWidth` pixels, measured with the font that will
+// actually draw the text. Counting characters (the old behaviour) breaks for
+// mixed Chinese/Latin labels and for wide glyphs.
+static wxString EllipsizeToWidth(wxGraphicsContext* gc, const wxString& s,
+                                double maxWidth)
 {
-    if ((int)s.length() <= maxChars) return s;
-    if (maxChars <= 2) return s.Left(maxChars);
-    return s.Left(maxChars - 1) + wxT("\u2026");
+    if (s.IsEmpty())
+        return s;
+
+    wxDouble tw, th;
+    gc->GetTextExtent(s, &tw, &th);
+    if (tw <= maxWidth)
+        return s;
+
+    const wxString ell = wxT("\u2026");
+    for (int n = s.length() - 1; n > 0; --n) {
+        wxString candidate = s.Left(n) + ell;
+        gc->GetTextExtent(candidate, &tw, &th);
+        if (tw <= maxWidth)
+            return candidate;
+    }
+    return ell;
 }
 
 // Draw a bitmap clipped to a circle, using a mask approach
@@ -31,39 +49,45 @@ static wxBitmap MakeCircularIcon(const wxBitmap& src, int size)
     int ox = (sw - size) / 2, oy = (sh - size) / 2;
     wxImage cropped = img.GetSubImage(wxRect(ox, oy, size, size));
 
-    // Create a 32-bit result, then apply a soft circular alpha mask so the
-    // rim fades out cleanly instead of leaving a hard dark halo.
-    wxBitmap result(size, size, 32);
-    {
-        wxMemoryDC dc(result);
-        dc.SetBackground(wxBrush(wxTransparentColour));
-        dc.Clear();
-        dc.DrawBitmap(wxBitmap(cropped, 32), 0, 0, true);
-    }
+    // Build a 32-bit result and apply a soft circular alpha mask so the rim
+    // fades out cleanly instead of leaving a hard dark halo.
+    //
+    // This works on the wxImage and only converts to a wxBitmap at the end.
+    // Blitting through a wxMemoryDC on top of wxTransparentColour discards
+    // the alpha of what was drawn there on wxMSW, which renders every icon
+    // that carries an alpha channel (anything extracted from an exe) as an
+    // empty circle.
+    if (!cropped.HasAlpha())
+        cropped.InitAlpha();
 
-    wxAlphaPixelData data(result);
-    if (data) {
-        double r = size / 2.0;
-        double cx = r, cy = r;
-        const double soft = 1.5; // pixels of fade at the rim
-        wxAlphaPixelData::Iterator p(data);
-        for (int y = 0; y < size; ++y) {
-            p.MoveTo(data, 0, y);
-            for (int x = 0; x < size; ++x) {
-                double dx = x - cx + 0.5, dy = y - cy + 0.5;
-                double dist = std::sqrt(dx * dx + dy * dy);
-                double edge = (r - dist) / soft; // >1 inside, <0 outside
-                if (edge <= 0.0) {
-                    p.Alpha() = 0;
-                } else if (edge < 1.0) {
-                    p.Alpha() = (unsigned char)(edge * 255.0);
-                }
-                ++p;
-            }
+    const double r = size / 2.0;
+    const double cx = r, cy = r;
+    const double soft = 1.5; // pixels of fade at the rim
+
+    unsigned char* alpha = cropped.GetAlpha();
+    const int astep = cropped.GetWidth();
+
+    for (int y = 0; y < size; ++y) {
+        for (int x = 0; x < size; ++x) {
+            const double dx = x - cx + 0.5, dy = y - cy + 0.5;
+            const double dist = std::sqrt(dx * dx + dy * dy);
+            const double edge = (r - dist) / soft; // >1 inside, <0 outside
+
+            unsigned char mask;
+            if (edge <= 0.0)
+                mask = 0;
+            else if (edge < 1.0)
+                mask = (unsigned char)(edge * 255.0);
+            else
+                mask = 255;
+
+            // Combine the icon's own transparency with the circular mask.
+            const unsigned char own = alpha[y * astep + x];
+            alpha[y * astep + x] = (unsigned char)((own * mask) / 255);
         }
     }
 
-    return result;
+    return wxBitmap(cropped, 32);
 }
 
 // ---------------------------------------------------------------------------
@@ -94,15 +118,16 @@ IconGridPanel::IconGridPanel(wxWindow* parent, wxWindowID id)
     , m_contentHeight(0)
 {
     SetBackgroundStyle(wxBG_STYLE_PAINT);
-    SetMinSize(wxSize(400, 300));
+    SetMinSize(FromDIP(wxSize(520, 380)));
 
     m_cardW       = FromDIP(112);
-    m_cardH       = FromDIP(132);
+    m_cardH       = FromDIP(116);
     m_cardSpacing = FromDIP(10);
     m_iconSize    = FromDIP(52);
-    m_cardRadius  = FromDIP(12);
-    m_headerH     = FromDIP(20);
+    m_cardRadius  = FromDIP(10);
+    m_headerH     = FromDIP(12);
     m_scrollBarW  = FromDIP(6);
+    m_pad         = FromDIP(24);
 }
 
 IconGridPanel::~IconGridPanel() {}
@@ -127,10 +152,11 @@ void IconGridPanel::setDarkMode(bool dark)
 
 void IconGridPanel::UpdateScrollRange()
 {
-    wxSize sz = GetClientSize();
-    int cols = std::max(1, (sz.x + m_cardSpacing) / (m_cardW + m_cardSpacing));
-    int rows = ((int)m_items.size() + cols - 1) / cols;
-    m_contentHeight = rows * (m_cardH + m_cardSpacing) + m_cardSpacing;
+    const wxSize sz = GetClientSize();
+    const int pad = m_pad;
+    const int cols = std::max(1, (sz.x - 2 * pad + m_cardSpacing) / (m_cardW + m_cardSpacing));
+    const int rows = ((int)m_items.size() + cols - 1) / cols;
+    m_contentHeight = pad + rows * (m_cardH + m_cardSpacing) + pad;
 }
 
 // ---------------------------------------------------------------------------
@@ -156,19 +182,19 @@ void IconGridPanel::OnMouseWheel(wxMouseEvent& event)
 
 int IconGridPanel::hitTest(const wxPoint& pos) const
 {
-    wxSize sz = GetClientSize();
-    int cols = std::max(1, (sz.x + m_cardSpacing) / (m_cardW + m_cardSpacing));
-    int totalW = cols * m_cardW + (cols - 1) * m_cardSpacing;
-    int offsetX = (sz.x - totalW) / 2;
-    int pad = FromDIP(4);
+    const wxSize sz = GetClientSize();
+    const int pad = m_pad;
+    const int cols = std::max(1, (sz.x - 2 * pad + m_cardSpacing) / (m_cardW + m_cardSpacing));
+    const int totalW = cols * m_cardW + (cols - 1) * m_cardSpacing;
+    const int offsetX = (sz.x - totalW) / 2;
 
     for (size_t i = 0; i < m_items.size(); i++) {
         int col = i % cols;
         int row = i / cols;
-        int x = offsetX + col * (m_cardW + m_cardSpacing) + pad;
-        int y = row * (m_cardH + m_cardSpacing) + pad - m_scrollY;
+        int x = offsetX + col * (m_cardW + m_cardSpacing);
+        int y = pad + row * (m_cardH + m_cardSpacing) - m_scrollY;
 
-        wxRect cardRect(x, y, m_cardW - 2 * pad, m_cardH - 2 * pad);
+        wxRect cardRect(x, y, m_cardW, m_cardH);
         if (cardRect.Contains(pos))
             return static_cast<int>(i);
     }
@@ -246,8 +272,9 @@ void IconGridPanel::OnPaint(wxPaintEvent&)
     wxSize sz = GetClientSize();
 
     // -- Background: subtle vertical gradient --
-    wxColour bgTop = m_darkMode ? wxColour(0x1b, 0x1e, 0x26) : wxColour(0xf5, 0xf7, 0xfa);
-    wxColour bgBottom = m_darkMode ? wxColour(0x14, 0x16, 0x1c) : wxColour(0xe9, 0xed, 0xf2);
+    const UiTraits::Palette pal = UiTraits::GetPalette(m_darkMode);
+    wxColour bgTop = pal.contentBgTop;
+    wxColour bgBottom = pal.contentBgBottom;
     dc.SetBackground(wxBrush(bgBottom));
     dc.Clear();
 
@@ -267,10 +294,10 @@ void IconGridPanel::OnPaint(wxPaintEvent&)
         return;
     }
 
-    int cols = std::max(1, (sz.x + m_cardSpacing) / (m_cardW + m_cardSpacing));
-    int totalW = cols * m_cardW + (cols - 1) * m_cardSpacing;
-    int offsetX = (sz.x - totalW) / 2;
-    int pad = FromDIP(4);
+    const int pad = m_pad;
+    const int cols = std::max(1, (sz.x - 2 * pad + m_cardSpacing) / (m_cardW + m_cardSpacing));
+    const int totalW = cols * m_cardW + (cols - 1) * m_cardSpacing;
+    const int offsetX = (sz.x - totalW) / 2;
 
     // Visible area clip
     gc->Clip(0, 0, sz.x, sz.y);
@@ -278,12 +305,12 @@ void IconGridPanel::OnPaint(wxPaintEvent&)
     for (size_t i = 0; i < m_items.size(); i++) {
         int col = i % cols;
         int row = i / cols;
-        int x = offsetX + col * (m_cardW + m_cardSpacing) + pad;
-        int y = row * (m_cardH + m_cardSpacing) + pad - m_scrollY;
+        int x = offsetX + col * (m_cardW + m_cardSpacing);
+        int y = pad + row * (m_cardH + m_cardSpacing) - m_scrollY;
 
         if (y + m_cardH < 0 || y > sz.y) continue;
 
-        wxRect cardRect(x, y, m_cardW - 2 * pad, m_cardH - 2 * pad);
+        wxRect cardRect(x, y, m_cardW, m_cardH);
         bool hovered = ((int)i == m_hoveredIndex);
         bool pressed = ((int)i == m_pressedIndex);
         bool selected = ((int)i == m_selectedIndex);
@@ -342,118 +369,105 @@ void IconGridPanel::DrawCardGC(wxGraphicsContext* gc, const wxRect& rect,
                                 bool hovered, bool pressed, bool /*selected*/,
                                 bool isAddButton)
 {
+    const UiTraits::Palette pal = UiTraits::GetPalette(m_darkMode);
+
     double r = m_cardRadius;
     double x = rect.x, y = rect.y, w = rect.width, h = rect.height;
 
-    // Pressed feedback: push the card down and shrink the shadow
-    if (pressed && !isAddButton) {
+    // Pressed feedback: the card settles by a pixel rather than scaling, so
+    // the row of cards never appears to reflow while clicking.
+    if (pressed)
         y += 1;
-    }
 
-    // -- Theme accent --
-    wxColour accent = m_darkMode ? wxColour(0x4d, 0xa3, 0xff) : wxColour(0x1a, 0x73, 0xe8);
-
-    // -- Colors --
+    // -- Colours --
     wxColour cardBg, cardBorder, textFg, iconBg;
     if (isAddButton) {
-        cardBg     = m_darkMode ? wxColour(0x28, 0x2a, 0x2e) : wxColour(0xe8, 0xea, 0xed);
-        cardBorder = m_darkMode ? wxColour(0x38, 0x3a, 0x3e) : wxColour(0xd8, 0xda, 0xde);
-        textFg     = m_darkMode ? wxColour(0x8a, 0x8e, 0x94) : wxColour(0x5f, 0x63, 0x68);
-        iconBg     = m_darkMode ? wxColour(0x35, 0x37, 0x3c) : wxColour(0xd8, 0xda, 0xde);
-        if (hovered) {
-            cardBg     = m_darkMode ? wxColour(0x2f, 0x31, 0x35) : wxColour(0xdf, 0xe7, 0xf4);
-            cardBorder = accent;
-            textFg     = accent;
-            iconBg     = m_darkMode ? wxColour(0x3d, 0x40, 0x46) : wxColour(0xc6, 0xd8, 0xef);
-        }
+        cardBg     = hovered ? UiTraits::Shift(pal.addCardBg, m_darkMode ? 10 : -4)
+                             : pal.addCardBg;
+        cardBorder = hovered ? pal.accent : pal.addCardBorder;
+        textFg     = hovered ? pal.accent : pal.textMutedFg;
+        iconBg     = hovered ? UiTraits::Shift(pal.addIconBg, m_darkMode ? 10 : -4)
+                             : pal.addIconBg;
     } else {
-        cardBg     = m_darkMode ? (hovered ? wxColour(0x2e, 0x30, 0x35) : wxColour(0x24, 0x26, 0x2a))
-                                : (hovered ? wxColour(0xfb, 0xfc, 0xfd) : *wxWHITE);
-        cardBorder = hovered ? accent
-                    : m_darkMode ? wxColour(0x35, 0x37, 0x3c)
-                                 : wxColour(0xe8, 0xea, 0xed);
-        textFg     = m_darkMode ? wxColour(0xe0, 0xe2, 0xe6) : wxColour(0x3c, 0x40, 0x43);
-        iconBg     = m_darkMode ? wxColour(0x35, 0x37, 0x3c) : wxColour(0xf0, 0xf2, 0xf5);
+        cardBg     = hovered ? pal.cardBgHover : pal.cardBg;
+        cardBorder = hovered ? UiTraits::Shift(pal.cardBorder, m_darkMode ? 12 : -6)
+                             : pal.cardBorder;
+        textFg     = pal.textFg;
+        iconBg     = m_darkMode ? wxColour(0x26, 0x29, 0x2f) : wxColour(0xf2, 0xf4, 0xf7);
     }
 
     // -- Shadow --
-    {
-        double sa = pressed ? 0.04 : (hovered ? 0.16 : 0.07);
-        double base = pressed ? 2.0 : (hovered ? 6.0 : 4.0);
+    // A single soft shadow on the hovered card only. At rest the card is
+    // defined by its border alone: stacking several spread rectangles made
+    // every tile look heavier than the content it holds.
+    if (hovered && !isAddButton) {
+        const double blur = pressed ? 2.0 : 5.0;
         for (int i = 3; i >= 0; --i) {
-            double spread = base + i * (pressed ? 1.5 : (hovered ? 3.0 : 2.0));
-            double alpha = sa / (i * 0.7 + 1.0);
-            unsigned char a = (unsigned char)(alpha * 255);
-            wxColour sc(0, 0, 0, a);
-            gc->SetBrush(gc->CreateBrush(wxBrush(sc)));
+            const double t = static_cast<double>(i) / 3.0;
+            const double spread = blur * t;
+            const unsigned char a =
+                static_cast<unsigned char>((pressed ? 10.0 : 26.0) * (1.0 - t * 0.75));
+            gc->SetBrush(gc->CreateBrush(wxBrush(wxColour(0, 0, 0, a))));
             gc->SetPen(*wxTRANSPARENT_PEN);
-            double dx = (i == 0) ? 0 : (i % 2 == 0 ? 1 : -1);
-            double dy = spread * 0.5;
-            gc->DrawRoundedRectangle(x + dx - i, y + dy - i * 0.5,
-                                     w + i * 2, h + i * 2, r + i);
+            gc->DrawRoundedRectangle(x - spread, y + blur * 0.35,
+                                     w + spread * 2, h + spread * 2, r + spread);
         }
     }
 
     // -- Card body --
-    gc->SetPen(wxPen(cardBorder, hovered ? 1.4 : 0.8));
     gc->SetBrush(wxBrush(cardBg));
+    // The "+ add" tile is an action, not content, so it keeps the dashed
+    // outline that reads as a placeholder.
+    if (isAddButton && !hovered)
+        gc->SetPen(wxPen(cardBorder, 1.2, wxPENSTYLE_SHORT_DASH));
+    else
+        gc->SetPen(wxPen(cardBorder, hovered ? 1.0 : 0.8));
     gc->DrawRoundedRectangle(x, y, w, h, r);
 
-    // Hovering: slightly grow the icon for a "lift" feel
-    int iconSize = hovered ? m_iconSize + FromDIP(4) : m_iconSize;
-    int iconCX = (int)(x + w / 2);
-    int iconCY = (int)(y + m_headerH + m_iconSize / 2 + FromDIP(4));
+    // Hovering lifts the icon slightly for a subtle "picked up" feel.
+    int iconSize = hovered ? m_iconSize + FromDIP(2) : m_iconSize;
+    const int iconCX = static_cast<int>(x + w / 2);
+    const int iconCY = static_cast<int>(y + m_headerH + m_iconSize / 2 + FromDIP(2));
 
     if (isAddButton) {
         // Circle with "+"
-        double circleR = iconSize / 2.0 - 1;
-        gc->SetPen(wxPen(cardBorder, hovered ? 1.6 : 1.0));
+        const double circleR = iconSize / 2.0;
+        gc->SetPen(*wxTRANSPARENT_PEN);
         gc->SetBrush(wxBrush(iconBg));
         gc->DrawEllipse(iconCX - circleR, iconCY - circleR, circleR * 2, circleR * 2);
 
-        int ps = iconSize / 3;
-        gc->SetPen(wxPen(textFg, hovered ? 2.4 : 2.0));
-        gc->StrokeLine(iconCX - ps / 2.0, (double)iconCY,
-                       iconCX + ps / 2.0, (double)iconCY);
-        gc->StrokeLine((double)iconCX, iconCY - ps / 2.0,
-                       (double)iconCX, iconCY + ps / 2.0);
+        const int ps = iconSize / 3;
+        gc->SetPen(wxPen(textFg, hovered ? 2.2 : 1.8));
+        gc->StrokeLine(iconCX - ps / 2.0, static_cast<double>(iconCY),
+                       iconCX + ps / 2.0, static_cast<double>(iconCY));
+        gc->StrokeLine(static_cast<double>(iconCX), iconCY - ps / 2.0,
+                       static_cast<double>(iconCX), iconCY + ps / 2.0);
     } else if (icon.IsOk()) {
-        // Draw circular icon
         wxBitmap circIcon = MakeCircularIcon(icon, iconSize);
         if (circIcon.IsOk()) {
-            int ix = iconCX - iconSize / 2;
-            int iy = iconCY - iconSize / 2;
+            const int ix = iconCX - iconSize / 2;
+            const int iy = iconCY - iconSize / 2;
             gc->DrawBitmap(circIcon, ix, iy, iconSize, iconSize);
-        }
-
-        // Hover ring only — the icon is already circular via the mask, so a
-        // permanent border just adds an ugly dark outline.
-        if (hovered) {
-            double rad = iconSize / 2.0;
-            gc->SetPen(wxPen(accent, 1.6));
-            gc->SetBrush(*wxTRANSPARENT_BRUSH);
-            gc->DrawEllipse(iconCX - rad, iconCY - rad, rad * 2, rad * 2);
         }
     }
 
-    // -- Text --
-    if (!text.IsEmpty() && !isAddButton) {
-        int textY = iconCY + m_iconSize / 2 + FromDIP(8);
+    // -- Label --
+    if (!text.IsEmpty()) {
+        gc->SetFont(UiTraits::UiFont(9), textFg);
 
-        gc->SetFont(
-            wxFont(FromDIP(10), wxFONTFAMILY_SWISS,
-                   wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL),
-            textFg);
+        // Sit the label a fixed distance under the icon, measured from the
+        // font itself so mixed CJK/Latin text keeps a stable baseline.
+        const int textY = iconCY + m_iconSize / 2 + FromDIP(8);
 
-        wxString display = Ellipsize(text, 14);
+        const double maxTextW = w - FromDIP(12);
+        const wxString display = EllipsizeToWidth(gc, text, maxTextW);
         wxDouble tw, th;
         gc->GetTextExtent(display, &tw, &th);
 
-        double tx = x + (w - tw) / 2.0;
-        double ty = textY;
+        const double tx = x + (w - tw) / 2.0;
 
         gc->Clip(x + 2, y, w - 4, h);
-        gc->DrawText(display, tx, ty);
+        gc->DrawText(display, tx, textY);
         gc->ResetClip();
     }
 }

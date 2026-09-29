@@ -1,14 +1,16 @@
 #include "appitem.h"
 #include "funcitem.h"
 #include "icongenerator.h"
+#include "exeiconextractor.h"
+#include "config.h"
 #include <wx/filename.h>
 
 AppItem::AppItem()
 {
 }
 
-AppItem::AppItem(const wxString& name, const wxString& iconPath)
-    : m_name(name), m_iconPath(iconPath)
+AppItem::AppItem(const wxString& name, const wxString& iconPath, const wxString& exePath)
+    : m_name(name), m_iconPath(iconPath), m_exePath(exePath)
 {
 }
 
@@ -18,6 +20,7 @@ AppItem::~AppItem()
 
 wxBitmap AppItem::getIcon(int size) const
 {
+    // 1. An explicitly configured icon file always wins.
     if (!m_iconPath.IsEmpty()) {
         wxFileName fn(m_iconPath);
         if (fn.Exists()) {
@@ -33,6 +36,30 @@ wxBitmap AppItem::getIcon(int size) const
             }
         }
     }
+
+    // 2. Otherwise extract it from the executable this app points at.
+    if (AppConfig::extractExeIcon && !m_exePath.IsEmpty()) {
+        wxBitmap bmp = ExeIconExtractor::Extract(m_exePath, size);
+        if (bmp.IsOk())
+            return bmp;
+    }
+
+    // 3. Fall back to the first function below whose own command resolves to
+    //    an icon, so a folder whose entries are all real programs still gets
+    //    a representative icon. A function only ever looks at its own
+    //    command list, never at its siblings.
+    if (AppConfig::extractExeIcon) {
+        for (const auto& func : m_funcs) {
+            if (!func)
+                continue;
+            for (const wxString& cmd : func->getCmds()) {
+                wxBitmap bmp = ExeIconExtractor::Extract(cmd, size);
+                if (bmp.IsOk())
+                    return bmp;
+            }
+        }
+    }
+
     return IconGenerator::generateDefaultIcon(m_name, size);
 }
 
@@ -71,6 +98,7 @@ YAML::Node AppItem::toYaml() const
     YAML::Node node;
     node["name"] = m_name.ToStdString();
     node["iconPath"] = m_iconPath.ToStdString();
+    node["exePath"] = m_exePath.ToStdString();
 
     for (const auto& app : m_subApps) {
         node["subApps"].push_back(app->toYaml());
@@ -87,6 +115,8 @@ void AppItem::fromYaml(const YAML::Node& node)
         m_name = wxString::FromUTF8(node["name"].as<std::string>().c_str());
     if (node["iconPath"])
         m_iconPath = wxString::FromUTF8(node["iconPath"].as<std::string>().c_str());
+    if (node["exePath"])
+        m_exePath = wxString::FromUTF8(node["exePath"].as<std::string>().c_str());
 
     m_subApps.clear();
     m_funcs.clear();

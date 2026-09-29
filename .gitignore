@@ -137,7 +137,10 @@ Thumbs.db
 .pch/
 .rcc/
 .uic/
-/build*/
+# CMake/Ninja build trees (build/, build/mingw/, ...). Note: build-tools/ holds
+# checked-in development tools and must stay tracked.
+/build/
+/build/*/
 
 .vscode/
 .qtcreator/

@@ -16,6 +16,11 @@ namespace AppConfig {
 
     inline const wxChar* APP_ICON_PATH = wxT("resources/app_icon.ico");
 
+    // Whether app/function icons are extracted from the executable when no
+    // icon file was configured explicitly. Enabled by default; the Start
+    // menu toggle writes it back to config.yaml as `extractExeIcon`.
+    inline bool extractExeIcon = true;
+
     inline wxString aboutHtml() {
         wxString html;
         html << wxT("<h3>") << APP_DISPLAY_NAME << wxT("</h3>");

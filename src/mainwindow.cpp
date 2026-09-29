@@ -3,8 +3,9 @@
 #include "funcconfigdialog.h"
 #include "icongenerator.h"
 #include "config.h"
-
+#include "uitraits.h"
 #include <wx/stdpaths.h>
+#include <wx/display.h>
 #include <wx/filename.h>
 #include <wx/filedlg.h>
 #include <wx/textdlg.h>
@@ -25,23 +26,38 @@ wxBEGIN_EVENT_TABLE(MainWindow, wxFrame)
     EVT_MENU(MainWindow::ID_ADD_APP, MainWindow::OnAddApp)
     EVT_MENU(MainWindow::ID_ADD_FUNC, MainWindow::OnAddFunc)
     EVT_MENU(MainWindow::ID_OPEN_CONFIG, MainWindow::OnOpenConfig)
+    EVT_MENU(MainWindow::ID_EXTRACT_EXE_ICON, MainWindow::OnExtractExeIconToggled)
     EVT_MENU(MainWindow::ID_THEME_AUTO, MainWindow::OnThemeChanged)
     EVT_MENU(MainWindow::ID_THEME_LIGHT, MainWindow::OnThemeChanged)
     EVT_MENU(MainWindow::ID_THEME_DARK, MainWindow::OnThemeChanged)
-    EVT_CHOICE(MainWindow::ID_LANG_CHOICE, MainWindow::OnLanguageChanged)
     EVT_BUTTON(MainWindow::ID_BACK, MainWindow::OnBackClicked)
     EVT_CLOSE(MainWindow::OnClose)
 wxEND_EVENT_TABLE()
 
+// A window size that uses the available screen instead of a fixed 800x600,
+// so a small grid is not stranded in the top-left of a large display.
+wxSize MainWindow::DefaultFrameSize()
+{
+    const auto dip = [](int v) { return wxWindowBase::FromDIP(v, nullptr); };
+
+    const wxRect work = wxDisplay(wxDisplay::GetFromPoint(wxPoint(0, 0))).GetClientArea();
+    if (work.width <= 0 || work.height <= 0)
+        return wxSize(dip(800), dip(600));
+
+    int w = std::min(dip(1000), work.width - dip(60));
+    int h = std::min(dip(680), work.height - dip(80));
+    return wxSize(std::max(w, dip(560)), std::max(h, dip(420)));
+}
+
 MainWindow::MainWindow(AppItem* initialItem, MainWindow* parentWin)
-    : wxFrame(nullptr, wxID_ANY, wxT("WiseExec"), wxDefaultPosition, wxSize(800, 600))
+    : wxFrame(nullptr, wxID_ANY, wxT("WiseExec"), wxDefaultPosition, DefaultFrameSize())
     , m_gridPanel(nullptr)
     , m_headerBar(nullptr)
     , m_headerDivider(nullptr)
-    , m_titleLabel(nullptr)
+    , m_breadcrumb(nullptr)
     , m_backBtn(nullptr)
-    , m_langChoice(nullptr)
-    , m_langLabel(nullptr)
+    , m_langSelector(nullptr)
+    , m_statusText(nullptr)
     , m_statusBar(nullptr)
     , m_currentItem(nullptr)
     , m_rootItem(nullptr)
@@ -88,13 +104,27 @@ MainWindow::MainWindow(AppItem* initialItem, MainWindow* parentWin)
     frameSizer->Add(mainPanel, 1, wxEXPAND);
     SetSizer(frameSizer);
 
-    SetMinSize(wxSize(640, 480));
+    SetMinSize(FromDIP(wxSize(520, 380)));
+
+    // Ask the OS to paint the window frame (title bar, scrollbars, and the
+    // frame around a modal dialog) in the same appearance as the app. Applied
+    // here rather than per dialog because the setting is process-wide.
+    ApplyNativeAppearance();
 
     // Menu bar
     SetupMenuBar();
 
-    // Status bar
+    // Status bar: a plain panel with our own label, because the native
+    // status bar draws with system metrics that clash with the header.
     m_statusBar = CreateStatusBar(1);
+    m_statusBar->SetMinSize(FromDIP(wxSize(-1, 26)));
+    m_statusText = new wxStaticText(m_statusBar, wxID_ANY, wxEmptyString);
+    m_statusText->SetFont(UiTraits::UiFont(8));
+    {
+        wxBoxSizer* sizer = new wxBoxSizer(wxHORIZONTAL);
+        sizer->Add(m_statusText, 1, wxALIGN_CENTER_VERTICAL | wxLEFT | wxRIGHT, FromDIP(12));
+        m_statusBar->SetSizer(sizer);
+    }
     UpdateHeaderStyle(); // re-apply theme now that the status bar exists
 
     // Context menu
@@ -107,6 +137,7 @@ MainWindow::MainWindow(AppItem* initialItem, MainWindow* parentWin)
     RefreshIconList();
     UpdateBreadcrumb();
     SyncThemeMenu();
+    SyncExtractExeIconMenu();
 
     Centre();
 }
@@ -144,6 +175,10 @@ void MainWindow::SetupMenuBar()
     m_themeMenu->AppendRadioItem(ID_THEME_DARK, _("Dark"));
     m_fileMenu->Append(wxID_ANY, _("Theme"), m_themeMenu);
 
+    // Extract app/function icons from their executables when no icon file
+    // was configured. Enabled by default.
+    m_fileMenu->AppendCheckItem(ID_EXTRACT_EXE_ICON, _("Extract icon from exe"));
+
     m_fileMenu->AppendSeparator();
     m_fileMenu->Append(ID_EXIT, _("Exit"));
 
@@ -165,25 +200,26 @@ void MainWindow::SetupMenuBar()
 void MainWindow::SetupHeaderBar(wxWindow* parent, wxBoxSizer* parentSizer)
 {
     m_headerBar = new wxPanel(parent);
-    m_headerBar->SetMinSize(wxSize(-1, 52));
+    m_headerBar->SetMinSize(wxSize(-1, FromDIP(52)));
 
     wxBoxSizer* headerSizer = new wxBoxSizer(wxHORIZONTAL);
 
     // Common font for header elements
-    wxFont headerFont(wxSize(0, 12), wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL);
+    const wxFont headerFont = UiTraits::UiFont(9);
 
     // Back button
     m_backBtn = new wxButton(m_headerBar, ID_BACK, wxT("\u2190"),
-                             wxDefaultPosition, wxSize(36, 36), wxBORDER_NONE | wxBU_EXACTFIT);
-    m_backBtn->SetFont(wxFont(16, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL));
+                             wxDefaultPosition, FromDIP(wxSize(32, 32)),
+                             wxBORDER_NONE | wxBU_EXACTFIT);
+    m_backBtn->SetFont(UiTraits::UiFont(12));
 
     // Hover feedback. The default background is matched to the header colour
     // (set in UpdateHeaderStyle) so the button blends in. We always use a
     // solid colour, never wxTransparentColour — on wxMSW a transparent
     // wxButton paints as a black box.
     m_backBtn->Bind(wxEVT_ENTER_WINDOW, [this](wxMouseEvent&) {
-        m_backBtn->SetBackgroundColour(m_darkMode ? wxColour(0x25, 0x34, 0x4c)
-                                                  : wxColour(0x36, 0x83, 0xf2));
+        const UiTraits::Palette p = UiTraits::GetPalette(m_darkMode);
+        m_backBtn->SetBackgroundColour(UiTraits::Shift(p.headerBg, m_darkMode ? 22 : -10));
         m_backBtn->Refresh();
     });
     m_backBtn->Bind(wxEVT_LEAVE_WINDOW, [this](wxMouseEvent&) {
@@ -191,30 +227,27 @@ void MainWindow::SetupHeaderBar(wxWindow* parent, wxBoxSizer* parentSizer)
         m_backBtn->Refresh();
     });
 
-    headerSizer->Add(m_backBtn, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, FromDIP(8));
+    headerSizer->Add(m_backBtn, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, FromDIP(12));
     headerSizer->Hide(m_backBtn); // Hidden initially, shown by UpdateBreadcrumb
 
-    // Title (breadcrumb) - slightly larger and bolder
-    m_titleLabel = new wxStaticText(m_headerBar, wxID_ANY, wxEmptyString);
-    m_titleLabel->SetFont(wxFont(wxSize(0, 14), wxFONTFAMILY_DEFAULT,
-                                 wxFONTSTYLE_NORMAL, wxFONTWEIGHT_BOLD));
-    headerSizer->Add(m_titleLabel, 1, wxALIGN_CENTER_VERTICAL | wxLEFT | wxRIGHT, FromDIP(10));
+    // Title (breadcrumb) - the current folder is drawn at full strength and
+    // its ancestors dimmed, so the endpoint reads immediately.
+    m_breadcrumb = new BreadcrumbBar(m_headerBar);
+    headerSizer->Add(m_breadcrumb, 1, wxALIGN_CENTER_VERTICAL | wxLEFT | wxRIGHT, FromDIP(10));
 
-    // Language choice
-    m_langLabel = new wxStaticText(m_headerBar, wxID_ANY, _("Language:"));
-    m_langLabel->SetFont(headerFont);
-    m_langChoice = new wxChoice(m_headerBar, ID_LANG_CHOICE);
-    m_langChoice->SetFont(headerFont);
-    m_langChoice->Append(wxT("English"));
-    m_langChoice->Append(wxT("\x4E2D\x6587")); // 中文
+    // Language choice. The label is dropped in favour of a self-describing
+    // control, which keeps the header from carrying a second piece of text.
+    m_langSelector = new LangSelector(m_headerBar, ID_LANG_CHOICE);
+    m_langSelector->SetMinSize(FromDIP(wxSize(92, 28)));
+    m_langSelector->SetEntries({ wxT("English"), wxT("\x4E2D\x6587") }); // 中文
 
     wxString lang = m_savedLanguage.IsEmpty()
         ? wxString(wxLocale::GetSystemLanguage() == wxLANGUAGE_CHINESE_SIMPLIFIED ? wxT("zh_CN") : wxT("en"))
         : m_savedLanguage;
-    m_langChoice->SetSelection(lang == wxT("zh_CN") ? 1 : 0);
+    m_langSelector->SetSelection(lang == wxT("zh_CN") ? 1 : 0);
+    m_langSelector->onChanged([this](int index) { OnLanguageSelected(index); });
 
-    headerSizer->Add(m_langLabel, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, FromDIP(4));
-    headerSizer->Add(m_langChoice, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, FromDIP(8));
+    headerSizer->Add(m_langSelector, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, FromDIP(12));
 
     m_headerBar->SetSizer(headerSizer);
     parentSizer->Add(m_headerBar, 0, wxEXPAND);
@@ -232,29 +265,26 @@ void MainWindow::UpdateBreadcrumb()
     // Determine the root window
     MainWindow* root = m_rootWindow ? m_rootWindow : this;
 
-    // Build breadcrumb: Root ▸ NavStack... ▸ Current
-    wxString path;
-    wxString rootName = root->m_currentItem && !root->m_currentItem->getName().IsEmpty()
-        ? root->m_currentItem->getName() : wxString(_("Home"));
-    path = rootName;
+    // Build breadcrumb as a list of segments so ancestors can be dimmed and
+    // the current folder reads as the endpoint.
+    std::vector<wxString> segs;
+    segs.push_back(root->m_currentItem && !root->m_currentItem->getName().IsEmpty()
+                       ? root->m_currentItem->getName() : wxString(_("Home")));
 
     if (m_navStack) {
         for (MainWindow* w : *m_navStack) {
             if (w == root) continue; // root is already the first segment
-            wxString name = w->m_currentItem && !w->m_currentItem->getName().IsEmpty()
-                ? w->m_currentItem->getName() : wxString(_("Home"));
-            path += wxT(" \u25B8 ") + name;
+            segs.push_back(w->m_currentItem && !w->m_currentItem->getName().IsEmpty()
+                               ? w->m_currentItem->getName() : wxString(_("Home")));
         }
     }
 
-    // Append current item if not root
     if (this != root) {
-        wxString currentName = m_currentItem && !m_currentItem->getName().IsEmpty()
-            ? m_currentItem->getName() : wxString(_("Home"));
-        path += wxT(" \u25B8 ") + currentName;
+        segs.push_back(m_currentItem && !m_currentItem->getName().IsEmpty()
+                           ? m_currentItem->getName() : wxString(_("Home")));
     }
 
-    m_titleLabel->SetLabel(path);
+    m_breadcrumb->SetSegments(segs);
 
     // Back button: visible only when not at root
     wxSizer* headerSizer = m_headerBar->GetSizer();
@@ -266,37 +296,36 @@ void MainWindow::UpdateBreadcrumb()
     wxString currentName = m_currentItem && !m_currentItem->getName().IsEmpty()
         ? m_currentItem->getName() : wxString(_("Home"));
     SetTitle(wxString::Format(wxT("WiseExec - %s"), currentName));
-    if (m_statusBar) {
-        m_statusBar->SetStatusText(wxString::Format(_("Current: %s"), path));
+    if (m_statusText) {
+        wxString path;
+        for (size_t i = 0; i < segs.size(); ++i)
+            path = i ? path + wxT(" \u25B8 ") + segs[i] : segs[i];
+        m_statusText->SetLabel(wxString::Format(_("Current: %s"), path));
     }
     Layout();
 }
 
 void MainWindow::UpdateHeaderStyle()
 {
-    if (m_darkMode) {
-        // Deep navy header that blends with the dark content area to avoid
-        // the "bright blue vs dark body" clash.
-        m_headerBar->SetBackgroundColour(wxColour(0x16, 0x23, 0x3a));
-        m_titleLabel->SetForegroundColour(wxColour(0xe8, 0xec, 0xf1));
-        m_langLabel->SetForegroundColour(wxColour(0xb3, 0xbd, 0xc9));
-        m_backBtn->SetForegroundColour(wxColour(0xe8, 0xec, 0xf1));
-        m_headerDivider->SetBackgroundColour(wxColour(0x0f, 0x11, 0x17));
-        if (m_statusBar) {
-            m_statusBar->SetBackgroundColour(wxColour(0x14, 0x17, 0x1c));
-            m_statusBar->SetForegroundColour(wxColour(0x9a, 0xa4, 0xb0));
-        }
-    } else {
-        m_headerBar->SetBackgroundColour(wxColour(0x1a, 0x6f, 0xe0));
-        m_titleLabel->SetForegroundColour(*wxWHITE);
-        m_langLabel->SetForegroundColour(wxColour(0xe8, 0xee, 0xf6));
-        m_backBtn->SetForegroundColour(*wxWHITE);
-        m_headerDivider->SetBackgroundColour(wxColour(0xd0, 0xd5, 0xdb));
-        if (m_statusBar) {
-            m_statusBar->SetBackgroundColour(wxColour(0xf0, 0xf2, 0xf5));
-            m_statusBar->SetForegroundColour(wxColour(0x3c, 0x40, 0x43));
-        }
+    const UiTraits::Palette pal = UiTraits::GetPalette(m_darkMode);
+
+    m_headerBar->SetBackgroundColour(pal.headerBg);
+    m_breadcrumb->SetBackgroundColour(pal.headerBg);
+    m_breadcrumb->SetColors(pal.headerFg, pal.headerMutedFg);
+    m_backBtn->SetForegroundColour(pal.headerFg);
+    m_headerDivider->SetBackgroundColour(pal.divider);
+    if (m_statusBar) {
+        m_statusBar->SetBackgroundColour(pal.statusBg);
+        m_statusBar->SetForegroundColour(pal.statusFg);
     }
+    if (m_statusText) {
+        m_statusText->SetForegroundColour(pal.statusFg);
+        m_statusText->SetFont(UiTraits::UiFont(9));
+        m_statusText->Refresh();
+    }
+    if (m_langSelector)
+        m_langSelector->SetColors(pal.headerFg, pal.headerBg, pal.accent);
+
     if (m_backBtn) {
         m_backBtn->SetBackgroundColour(m_headerBar->GetBackgroundColour());
     }
@@ -344,13 +373,14 @@ void MainWindow::RefreshIconList()
         items.push_back(item);
     }
 
-    // Add button
+    // Add button. The glyph is drawn by the grid itself, so the bitmap here
+    // only has to carry the right colours.
     {
-        wxColour addBg = m_darkMode ? wxColour(0x3a, 0x3a, 0x3a) : wxColour(0xe8, 0xea, 0xed);
-        wxColour addFg = m_darkMode ? wxColour(0x9a, 0xa0, 0xa6) : wxColour(0x5f, 0x63, 0x68);
+        const UiTraits::Palette pal = UiTraits::GetPalette(m_darkMode);
         IconGridItem item;
         item.name = _("+ Add");
-        item.icon = IconGenerator::generateIcon(wxT("+"), addBg, addFg, 64);
+        item.icon = IconGenerator::generateIcon(wxT("+"), pal.addIconBg,
+                                                pal.textMutedFg, 64);
         item.tag = IconGridItem::TagNull;
         item.data = nullptr;
         items.push_back(item);
@@ -424,7 +454,7 @@ void MainWindow::EditItem(int index)
 
     if (items[index].tag == IconGridItem::TagAppItem) {
         auto* appItem = static_cast<AppItem*>(items[index].data);
-        AppConfigDialog dlg(this, appItem);
+        AppConfigDialog dlg(this, appItem, m_darkMode);
         if (dlg.ShowModal() == wxID_OK) {
             auto result = dlg.getResult();
             if (result) {
@@ -436,7 +466,7 @@ void MainWindow::EditItem(int index)
         }
     } else if (items[index].tag == IconGridItem::TagFuncItem) {
         auto* funcItem = static_cast<FuncItem*>(items[index].data);
-        FuncConfigDialog dlg(this, funcItem);
+        FuncConfigDialog dlg(this, funcItem, m_darkMode);
         if (dlg.ShowModal() == wxID_OK) {
             auto result = dlg.getResult();
             if (result) {
@@ -476,7 +506,7 @@ void MainWindow::DeleteItem(int index)
 
 void MainWindow::OnAddApp(wxCommandEvent&)
 {
-    AppConfigDialog dlg(this);
+    AppConfigDialog dlg(this, nullptr, m_darkMode);
     if (dlg.ShowModal() == wxID_OK) {
         auto result = dlg.getResult();
         if (result) {
@@ -489,7 +519,7 @@ void MainWindow::OnAddApp(wxCommandEvent&)
 
 void MainWindow::OnAddFunc(wxCommandEvent&)
 {
-    FuncConfigDialog dlg(this);
+    FuncConfigDialog dlg(this, nullptr, m_darkMode);
     if (dlg.ShowModal() == wxID_OK) {
         auto result = dlg.getResult();
         if (result) {
@@ -515,6 +545,20 @@ void MainWindow::OnOpenConfig(wxCommandEvent&)
     }
 }
 
+void MainWindow::SyncExtractExeIconMenu()
+{
+    if (m_fileMenu)
+        m_fileMenu->Check(ID_EXTRACT_EXE_ICON, AppConfig::extractExeIcon);
+}
+
+void MainWindow::OnExtractExeIconToggled(wxCommandEvent& event)
+{
+    AppConfig::extractExeIcon = event.IsChecked();
+    SyncExtractExeIconMenu();
+    RefreshIconList();
+    SaveConfig();
+}
+
 void MainWindow::OnThemeChanged(wxCommandEvent& event)
 {
     switch (event.GetId()) {
@@ -535,12 +579,25 @@ void MainWindow::ApplyTheme()
     else
         m_darkMode = (m_themeMode == wxT("dark"));
 
+    ApplyNativeAppearance();
+
     if (m_gridPanel) {
         m_gridPanel->setDarkMode(m_darkMode);
         RefreshIconList();
     }
     UpdateHeaderStyle();
     SyncThemeMenu();
+}
+
+// The window frame itself is drawn by the OS, so it needs its own switch;
+// without this a dark app still gets a white title bar.
+void MainWindow::ApplyNativeAppearance()
+{
+    if (wxApp* app = wxTheApp) {
+        app->SetAppearance(m_darkMode ? wxApp::Appearance::Dark
+                                       : wxApp::Appearance::Light);
+    }
+    UiTraits::ApplyDarkFrame(this, m_darkMode);
 }
 
 void MainWindow::SyncThemeMenu()
@@ -554,19 +611,7 @@ void MainWindow::SyncThemeMenu()
 
 bool MainWindow::IsSystemDark()
 {
-#ifdef __WXMSW__
-    // Windows 10/11: AppsUseLightTheme = 0 means dark, 1 means light
-    DWORD value = 1, size = sizeof(value);
-    LONG r = RegGetValueW(
-        HKEY_CURRENT_USER,
-        L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
-        L"AppsUseLightTheme",
-        RRF_RT_REG_DWORD, nullptr, &value, &size);
-    if (r != ERROR_SUCCESS) value = 1;
-    return (value == 0);
-#else
-    return false;
-#endif
+    return UiTraits::IsSystemDark();
 }
 
 void MainWindow::OnSystemThemeChanged(wxSysColourChangedEvent&)
@@ -575,10 +620,18 @@ void MainWindow::OnSystemThemeChanged(wxSysColourChangedEvent&)
         ApplyTheme();
 }
 
-void MainWindow::OnLanguageChanged(wxCommandEvent&)
+void MainWindow::OnLanguageChanged(wxCommandEvent& event)
 {
-    int sel = m_langChoice->GetSelection();
+    OnLanguageSelected(m_langSelector ? m_langSelector->GetSelection()
+                                      : static_cast<int>(event.GetSelection()));
+}
+
+void MainWindow::OnLanguageSelected(int sel)
+{
     wxString locale = (sel == 1) ? wxT("zh_CN") : wxT("en");
+
+    if (locale == m_savedLanguage)
+        return; // the selector already shows this value; nothing to restart
 
     m_savedLanguage = locale;
     SaveConfig();
@@ -617,9 +670,12 @@ void MainWindow::OnBackClicked(wxCommandEvent&)
 
 void MainWindow::OnAboutQuickStart(wxCommandEvent&)
 {
-    wxString msg = wxT("WiseExec v2.0.0\n\n");
-    msg += _("A simple app launcher tool");
-    msg += wxT("\n\nCopyright (C) 2024");
+    // Built from the shared app metadata so the About box cannot drift from
+    // the VERSION file / version resource.
+    wxString msg;
+    msg << AppConfig::APP_DISPLAY_NAME << wxT(" v") << AppConfig::APP_VERSION << wxT("\n\n");
+    msg << AppConfig::APP_DESCRIPTION;
+    msg << wxT("\n\n") << AppConfig::APP_COPYRIGHT;
     wxMessageBox(msg, _("About WiseExec"), wxOK | wxICON_INFORMATION, this);
 }
 
@@ -689,6 +745,9 @@ void MainWindow::LoadConfig()
                                      ? IsSystemDark()
                                      : (m_themeMode == wxT("dark"));
                 }
+                // Absent key keeps the default, which is enabled.
+                if (rootNode["extractExeIcon"])
+                    AppConfig::extractExeIcon = rootNode["extractExeIcon"].as<bool>();
                 m_rootItem = new AppItem();
                 m_rootItem->fromYaml(rootNode);
                 return;
@@ -706,10 +765,11 @@ void MainWindow::SaveConfig()
     if (!m_rootItem) return;
 
     YAML::Node rootNode = m_rootItem->toYaml();
-    if (m_langChoice) {
-        rootNode["language"] = (m_langChoice->GetSelection() == 1) ? "zh_CN" : "en";
+    if (m_langSelector) {
+        rootNode["language"] = (m_langSelector->GetSelection() == 1) ? "zh_CN" : "en";
     }
     rootNode["theme"] = m_themeMode.ToStdString();
+    rootNode["extractExeIcon"] = AppConfig::extractExeIcon;
 
     YAML::Emitter emitter;
     emitter.SetIndent(4);

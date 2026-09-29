@@ -2,16 +2,18 @@
 #define MAINWINDOW_H
 
 #include <wx/wx.h>
+#include <wx/app.h>
 #include <wx/frame.h>
 #include <wx/panel.h>
 #include <wx/menu.h>
 #include <wx/statusbr.h>
-#include <wx/choice.h>
 #include <wx/stattext.h>
 #include <memory>
 #include <vector>
 #include "appitem.h"
+#include "breadcrumb.h"
 #include "icongridpanel.h"
+#include "langselector.h"
 
 class MainWindow : public wxFrame
 {
@@ -27,9 +29,11 @@ private:
     void OnAddApp(wxCommandEvent& event);
     void OnAddFunc(wxCommandEvent& event);
     void OnOpenConfig(wxCommandEvent& event);
+    void OnExtractExeIconToggled(wxCommandEvent& event);
     void OnThemeChanged(wxCommandEvent& event);
     void OnSystemThemeChanged(wxSysColourChangedEvent& event);
     void OnLanguageChanged(wxCommandEvent& event);
+    void OnLanguageSelected(int index);
     void OnBackClicked(wxCommandEvent& event);
     void OnItemClicked(int index);
     void OnItemRightClick(int index, wxPoint pos);
@@ -43,11 +47,14 @@ private:
     void SetupContextMenu();
     void UpdateHeaderStyle();
     void UpdateBreadcrumb();
+    void SyncExtractExeIconMenu();
 
     // Theme
     void ApplyTheme();
+    void ApplyNativeAppearance();
     void SyncThemeMenu();
     static bool IsSystemDark();
+    static wxSize DefaultFrameSize();
 
     void EditItem(int index);
     void DeleteItem(int index);
@@ -56,10 +63,10 @@ private:
     IconGridPanel* m_gridPanel;
     wxPanel* m_headerBar;
     wxPanel* m_headerDivider;
-    wxStaticText* m_titleLabel;
+    BreadcrumbBar* m_breadcrumb;
     wxButton* m_backBtn;
-    wxChoice* m_langChoice;
-    wxStaticText* m_langLabel;
+    LangSelector* m_langSelector;
+    wxStaticText* m_statusText;
     wxStatusBar* m_statusBar;
 
     AppItem* m_currentItem;
@@ -91,6 +98,7 @@ private:
         ID_ADD_APP,
         ID_ADD_FUNC,
         ID_OPEN_CONFIG,
+        ID_EXTRACT_EXE_ICON,
         ID_THEME_AUTO,
         ID_THEME_LIGHT,
         ID_THEME_DARK,

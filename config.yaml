@@ -1,7 +1,10 @@
 name: ""
 iconPath: ""
+exePath: ""
 subApps:
     -   name: A
         iconPath: ""
+        exePath: ""
 language: zh_CN
 theme: dark
+extractExeIcon: true

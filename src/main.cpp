@@ -38,6 +38,7 @@ static EmbeddedTranslationsLoader* CreateTranslationLoader()
         SP(wxT("Follow System"), wxT("跟随系统")),
         SP(wxT("Light"),         wxT("浅色")),
         SP(wxT("Dark"),          wxT("深色")),
+        SP(wxT("Extract icon from exe"), wxT("从 exe 提取图标")),
         SP(wxT("Exit"),          wxT("退出")),
         SP(wxT("Start"),         wxT("开始")),
         SP(wxT("About WiseExec"), wxT("关于 WiseExec")),
@@ -65,10 +66,14 @@ static EmbeddedTranslationsLoader* CreateTranslationLoader()
         SP(wxT("App Config"),    wxT("应用配置")),
         SP(wxT("App Name"),      wxT("应用名称")),
         SP(wxT("Icon Path"),     wxT("图标路径")),
+        SP(wxT("Exe Path"),      wxT("程序路径")),
         SP(wxT("Select Icon"),   wxT("选择图标")),
+        SP(wxT("Select Exe"),    wxT("选择程序")),
         SP(wxT("Select App Icon"), wxT("选择应用图标")),
+        SP(wxT("Select Executable"), wxT("选择可执行文件")),
         SP(wxT("App name cannot be empty"), wxT("应用名称不能为空")),
         SP(wxT("Icon file does not exist"), wxT("图标文件不存在")),
+        SP(wxT("Exe file does not exist"), wxT("程序文件不存在")),
         SP(wxT("Notice"),        wxT("提示")),
         // FuncConfigDialog
         SP(wxT("Function Config"), wxT("功能配置")),
@@ -81,6 +86,7 @@ static EmbeddedTranslationsLoader* CreateTranslationLoader()
             wxT("输入要执行的命令 (例如 notepad.exe, calc.exe):")),
         SP(wxT("This command already exists"), wxT("该命令已存在")),
         SP(wxT("Function name cannot be empty"), wxT("功能名称不能为空")),
+        SP(wxT("Command list cannot be empty"), wxT("命令列表不能为空")),
     });
     return loader;
 }
